@@ -21,7 +21,7 @@ jobs:
         run: |
           fail=0
           for d in ubuntu debian fedora arch mint opensuse alpine popos \
-                   endeavouros bazzite kali omarchy netbootxyz; do
+                   endeavouros bazzite cachyos kali omarchy netbootxyz; do
             if ./usb-creator info "$d" >/dev/null 2>&1; then
               echo "PASS $d"
             else

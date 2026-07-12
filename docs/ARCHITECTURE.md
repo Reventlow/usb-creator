@@ -32,7 +32,7 @@ ever serve bytes, never the expectation those bytes are checked against.
 |---|---|---|
 | signed checksums | ubuntu, debian, mint, opensuse, kali | detached sig over the sums file, pinned key fingerprint |
 | signed checksums, rotating keys | fedora | clearsigned CHECKSUM, keys pinned per-run from first-party `fedora.gpg`, cross-checked against releases.json |
-| signed ISO | arch, alpine, endeavouros | detached sig over the image, pinned key |
+| signed ISO | arch, alpine, endeavouros, cachyos | detached sig over the image, pinned key |
 | checksum only | popos, bazzite, netbootxyz | sha256 from first-party host, TLS |
 | none (upstream publishes nothing) | omarchy | TLS only — warned loudly at every step |
 

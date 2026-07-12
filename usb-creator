@@ -18,7 +18,7 @@
 # License: MIT
 set -euo pipefail
 
-VERSION="0.4.1"
+VERSION="0.5.0"
 SCRIPT_NAME="$(basename "$0")"
 CACHE_DIR="${USB_CREATOR_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/usb-creator}"
 
@@ -226,6 +226,7 @@ run_gpg() {
 #   endeavouros  endeavouros.com/latest-release/ ("fingerprint")
 #   kali         current archive key served from archive.kali.org
 #                (rotated 2025; older docs list the pre-rotation key)
+#   cachyos      wiki.cachyos.org/cachyos_basic/download/ (full fingerprint)
 # fedora is absent on purpose: its release keys rotate, so the pin set is
 # taken from the first-party bundle at fedoraproject.org/fedora.gpg per run.
 declare -A DISTRO_GPG_FPR=(
@@ -237,6 +238,7 @@ declare -A DISTRO_GPG_FPR=(
     [alpine]="0482D84022F52DF1C4E7CD43293ACD0907D9495A"
     [endeavouros]="8F43FC374CD4CEEA19CEE323E3D8752ACDF595A1"
     [kali]="827C8569F2518CC677FECA1AED65462EC8D5E4C5"
+    [cachyos]="882DCFE48E2051D48E2562ABF3B607488DB35A47"
 )
 
 # Where to obtain each key. The transport does not need to be trusted for
@@ -252,6 +254,7 @@ declare -A DISTRO_GPG_KEYSRC=(
     [endeavouros]="https://raw.githubusercontent.com/endeavouros-team/keyring/master/endeavouros.gpg"
     [fedora]="https://fedoraproject.org/fedora.gpg"
     [kali]="https://archive.kali.org/archive-key.asc"
+    [cachyos]="${GPG_KEYSERVER}882DCFE48E2051D48E2562ABF3B607488DB35A47"
 )
 
 GPG_DYNAMIC_FPRS=""   # pin set for distros without a static pin (fedora)
@@ -340,7 +343,7 @@ fetch_signed_sums() {
 # ---------------------------------------------------------------------------
 
 DISTRO_IDS=(ubuntu debian fedora arch mint opensuse alpine popos endeavouros
-            bazzite kali omarchy netbootxyz)
+            bazzite cachyos kali omarchy netbootxyz)
 
 declare -A DISTRO_DESC=(
     [ubuntu]="Ubuntu Desktop, latest LTS (amd64)"
@@ -353,6 +356,7 @@ declare -A DISTRO_DESC=(
     [popos]="Pop!_OS latest LTS, Intel/AMD graphics image (amd64)"
     [endeavouros]="EndeavourOS, latest release (x86_64)"
     [bazzite]="Bazzite KDE desktop (gaming-focused Fedora), stable (amd64)"
+    [cachyos]="CachyOS desktop (performance-optimized Arch), latest (x86_64)"
     [kali]="Kali Linux Live, latest release (amd64)"
     [omarchy]="Omarchy — opinionated Arch/Hyprland by DHH (amd64)"
     [netbootxyz]="netboot.xyz network installer (tiny, boots many distros)"
@@ -400,10 +404,17 @@ resolve_ubuntu() {
 }
 
 resolve_debian() {
-    local base="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd"
-    local sums
-    sums=$(fetch_signed_sums debian "$base/SHA256SUMS" "$base/SHA256SUMS.sign") \
-        || die "cannot fetch Debian SHA256SUMS"
+    # cdimage.debian.org first; the mirrors are safe fallbacks because the
+    # SHA256SUMS signature is verified against the pinned Debian CD key —
+    # a tampering mirror fails verification rather than being trusted.
+    local base sums=""
+    for base in "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd" \
+                "https://mirrors.dotsrc.org/debian-cd/current/amd64/iso-cd" \
+                "https://ftp.halifax.rwth-aachen.de/debian-cd/current/amd64/iso-cd"; do
+        sums=$(fetch_signed_sums debian "$base/SHA256SUMS" "$base/SHA256SUMS.sign") && break
+        sums=""
+    done
+    [[ -n "$sums" ]] || die "cannot fetch Debian SHA256SUMS from any mirror"
     RESOLVED_FILE=$(awk '{ fn=$2; sub(/^\*/,"",fn) }
         fn ~ /^debian-[0-9.]+-amd64-netinst\.iso$/ { print fn; exit }' <<<"$sums")
     [[ -n "$RESOLVED_FILE" ]] || die "no netinst ISO found in Debian checksums"
@@ -568,6 +579,22 @@ resolve_bazzite() {
     RESOLVED_URL="$base/$RESOLVED_FILE"
     sums=$(fetch "$base/$RESOLVED_FILE-CHECKSUM") || die "cannot fetch Bazzite checksum"
     RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
+}
+
+resolve_cachyos() {
+    # mirror.cachyos.org (first-party) hosts listings, checksums and the
+    # detached ISO signature; the cdn77 endpoint (also cachyos.org) serves
+    # the bytes. Release dirs are YYMMDD.
+    local base="https://mirror.cachyos.org/ISO/desktop"
+    local index ver sums
+    index=$(fetch "$base/") || die "cannot reach $base"
+    ver=$(grep -oE 'href="[0-9]{6}/"' <<<"$index" | grep -oE '[0-9]{6}' | sort -n | tail -1)
+    [[ -n "$ver" ]] || die "could not determine latest CachyOS release"
+    RESOLVED_FILE="cachyos-desktop-linux-${ver}.iso"
+    sums=$(fetch "$base/$ver/$RESOLVED_FILE.sha256") || die "cannot fetch CachyOS checksum"
+    RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
+    RESOLVED_URL="https://cdn77.cachyos.org/ISO/desktop/$ver/$RESOLVED_FILE"
+    RESOLVED_ISO_SIG_URL="$base/$ver/$RESOLVED_FILE.sig"
 }
 
 resolve_kali() {
