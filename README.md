@@ -63,9 +63,14 @@ sha256sum -c SHA256SUMS && install -Dm755 usb-creator ~/.local/bin/usb-creator
 
 ### Requirements
 
-`bash` >= 4, `coreutils`, `util-linux` (lsblk 2.37+, findmnt), `curl`, `jq`,
-and `sudo` for the privileged steps (dd, umount). `gnupg` is optional but
-recommended — without it, signature verification is skipped with a warning.
+- `bash` >= 4
+- `coreutils` (dd, sha256sum, sha512sum, numfmt, ...)
+- `util-linux` (lsblk 2.37+, findmnt)
+- `curl`
+- `jq`
+- `sudo` — for the privileged steps (dd, umount) when not run as root
+- `gnupg` — optional but recommended; without it, signature verification
+  is skipped with a loud warning
 
 ```bash
 # Arch
@@ -142,6 +147,15 @@ usb-creator info arch
 Downloaded ISOs are cached in `~/.cache/usb-creator` (override with
 `USB_CREATOR_CACHE` or `XDG_CACHE_HOME`) and reused when their checksum
 still matches.
+
+## Development
+
+- `tests/test.sh` — offline test suite (no network, no root, no devices);
+  runs in CI on every push and PR alongside shellcheck.
+- Releases are built by CI on tag push (`git tag -a vX.Y.Z && git push
+  origin vX.Y.Z`) with Sigstore build provenance. Verify a downloaded
+  release with: `gh attestation verify usb-creator --repo Reventlow/usb-creator`
+- Design and trust model: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## Notes
 

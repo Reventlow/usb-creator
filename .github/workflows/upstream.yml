@@ -1,0 +1,33 @@
+name: Upstream watch
+
+# The resolvers scrape live distro infrastructure; this catches upstream
+# layout changes (renamed files, moved checksums, rotated keys) before a
+# user does. Weekly, and on demand.
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resolvers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Resolve every distro against live upstream
+        run: |
+          fail=0
+          for d in ubuntu debian fedora arch mint opensuse alpine popos \
+                   endeavouros bazzite kali omarchy netbootxyz; do
+            if ./usb-creator info "$d" >/dev/null 2>&1; then
+              echo "PASS $d"
+            else
+              echo "FAIL $d"
+              ./usb-creator info "$d" 2>&1 | tail -3 || true
+              fail=1
+            fi
+          done
+          exit $fail
