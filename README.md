@@ -52,11 +52,13 @@ install -Dm755 usb-creator ~/.local/bin/usb-creator
 sudo install -Dm755 usb-creator /usr/local/bin/usb-creator
 ```
 
-Quick install without cloning:
+Quick install without cloning — fetches the latest release and verifies
+its checksum before installing:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Reventlow/usb-creator/main/usb-creator \
-    -o ~/.local/bin/usb-creator && chmod +x ~/.local/bin/usb-creator
+curl -fsSLO https://github.com/Reventlow/usb-creator/releases/latest/download/usb-creator
+curl -fsSLO https://github.com/Reventlow/usb-creator/releases/latest/download/SHA256SUMS
+sha256sum -c SHA256SUMS && install -Dm755 usb-creator ~/.local/bin/usb-creator
 ```
 
 ### Requirements

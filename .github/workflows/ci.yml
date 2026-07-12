@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bash syntax check
+        run: bash -n usb-creator
+
+      - name: ShellCheck
+        run: shellcheck -x usb-creator
+
+      - name: PKGBUILD sanity
+        run: bash -n PKGBUILD
+
+      - name: Help runs without network or root
+        run: ./usb-creator --help
