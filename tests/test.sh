@@ -45,7 +45,7 @@ eq() { # eq <description> <actual> <expected>
 # --------------------------------------------------------------------------
 # Unit tests (sourced functions)
 # --------------------------------------------------------------------------
-# shellcheck source=../usb-creator
+# shellcheck source=/dev/null  # resolved at runtime relative to the tests dir
 source "$SCRIPT"
 set +e +o pipefail   # the tests manage control flow themselves
 
