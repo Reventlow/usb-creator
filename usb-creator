@@ -18,7 +18,7 @@
 # License: MIT
 set -euo pipefail
 
-VERSION="0.2.0"
+VERSION="0.3.0"
 SCRIPT_NAME="$(basename "$0")"
 CACHE_DIR="${USB_CREATOR_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/usb-creator}"
 
@@ -224,6 +224,8 @@ run_gpg() {
 #   opensuse     en.opensuse.org/openSUSE:Security_Features (project key)
 #   alpine       key file served from alpinelinux.org itself
 #   endeavouros  endeavouros.com/latest-release/ ("fingerprint")
+#   kali         current archive key served from archive.kali.org
+#                (rotated 2025; older docs list the pre-rotation key)
 # fedora is absent on purpose: its release keys rotate, so the pin set is
 # taken from the first-party bundle at fedoraproject.org/fedora.gpg per run.
 declare -A DISTRO_GPG_FPR=(
@@ -234,6 +236,7 @@ declare -A DISTRO_GPG_FPR=(
     [opensuse]="AD485664E901B867051AB15F35A2F86E29B700A4"
     [alpine]="0482D84022F52DF1C4E7CD43293ACD0907D9495A"
     [endeavouros]="8F43FC374CD4CEEA19CEE323E3D8752ACDF595A1"
+    [kali]="827C8569F2518CC677FECA1AED65462EC8D5E4C5"
 )
 
 # Where to obtain each key. The transport does not need to be trusted for
@@ -248,6 +251,7 @@ declare -A DISTRO_GPG_KEYSRC=(
     [alpine]="https://alpinelinux.org/keys/ncopa.asc"
     [endeavouros]="https://raw.githubusercontent.com/endeavouros-team/keyring/master/endeavouros.gpg"
     [fedora]="https://fedoraproject.org/fedora.gpg"
+    [kali]="https://archive.kali.org/archive-key.asc"
 )
 
 GPG_DYNAMIC_FPRS=""   # pin set for distros without a static pin (fedora)
@@ -333,7 +337,7 @@ fetch_signed_sums() {
 # ---------------------------------------------------------------------------
 
 DISTRO_IDS=(ubuntu debian fedora arch mint opensuse alpine popos endeavouros
-            bazzite netbootxyz)
+            bazzite kali netbootxyz)
 
 declare -A DISTRO_DESC=(
     [ubuntu]="Ubuntu Desktop, latest LTS (amd64)"
@@ -346,6 +350,7 @@ declare -A DISTRO_DESC=(
     [popos]="Pop!_OS latest LTS, Intel/AMD graphics image (amd64)"
     [endeavouros]="EndeavourOS, latest release (x86_64)"
     [bazzite]="Bazzite KDE desktop (gaming-focused Fedora), stable (amd64)"
+    [kali]="Kali Linux Live, latest release (amd64)"
     [netbootxyz]="netboot.xyz network installer (tiny, boots many distros)"
 )
 
@@ -558,6 +563,18 @@ resolve_bazzite() {
     RESOLVED_FILE="bazzite-stable-amd64.iso"
     RESOLVED_URL="$base/$RESOLVED_FILE"
     sums=$(fetch "$base/$RESOLVED_FILE-CHECKSUM") || die "cannot fetch Bazzite checksum"
+    RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
+}
+
+resolve_kali() {
+    local base="https://cdimage.kali.org/current"
+    local sums
+    sums=$(fetch_signed_sums kali "$base/SHA256SUMS" "$base/SHA256SUMS.gpg") \
+        || die "cannot fetch Kali SHA256SUMS"
+    RESOLVED_FILE=$(awk '{ fn=$2; sub(/^\*/,"",fn) }
+        fn ~ /^kali-linux-[0-9]{4}\.[0-9a-z]+-live-amd64\.iso$/ { print fn; exit }' <<<"$sums")
+    [[ -n "$RESOLVED_FILE" ]] || die "no live ISO found in Kali checksums"
+    RESOLVED_URL="$base/$RESOLVED_FILE"
     RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
 }
 

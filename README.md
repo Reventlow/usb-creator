@@ -20,8 +20,8 @@ with the guard rails you actually want:
 - **Every download is checksum-verified** against the distro's official
   sums, fetched over HTTPS from the project's own infrastructure.
 - **GPG signatures are verified with pinned keys** wherever the distro
-  publishes them: signed checksum files for Ubuntu, Debian, Mint, Fedora
-  and openSUSE; detached signatures over the ISO itself for Arch, Alpine
+  publishes them: signed checksum files for Ubuntu, Debian, Mint, Fedora,
+  openSUSE and Kali; detached signatures over the ISO itself for Arch, Alpine
   and EndeavourOS. Keys live in a private keyring under the cache dir
   (your own GnuPG setup is never touched), and a signature from any key
   other than the pinned fingerprint fails the download. Pop!_OS, Bazzite
@@ -113,6 +113,7 @@ usb-creator write [options]         # write an image
 | `popos` | Pop!_OS latest LTS, Intel/AMD graphics image (amd64) |
 | `endeavouros` | EndeavourOS, latest release (x86_64) |
 | `bazzite` | Bazzite KDE desktop (gaming-focused Fedora), stable (amd64) |
+| `kali` | Kali Linux Live, latest release (amd64) |
 | `netbootxyz` | netboot.xyz network installer (~2 MB, boots many distros) |
 
 Anything else: pass your own image with `--iso file.iso`.
