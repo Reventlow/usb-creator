@@ -17,15 +17,19 @@ with the guard rails you actually want:
   belongs to an imported ZFS pool is refused unconditionally — `--force`
   does not override that. If the mount table cannot be read at all, the
   tool refuses to write rather than assume the disk is idle.
-- **Every download is checksum-verified** against the distro's official
-  sums, fetched over HTTPS from the project's own infrastructure.
+- **Downloads are checksum-verified** against the distro's official sums,
+  fetched over HTTPS from infrastructure the project controls (or, for
+  Debian's mirror fallback, protected by the signature check below). The
+  single exception is Omarchy, which publishes no integrity data — see the
+  footnote in the distro table.
 - **GPG signatures are verified with pinned keys** wherever the distro
   publishes them: signed checksum files for Ubuntu, Debian, Mint, Fedora,
   openSUSE and Kali; detached signatures over the ISO itself for Arch, Alpine,
   EndeavourOS and CachyOS. Keys live in a private keyring under the cache dir
   (your own GnuPG setup is never touched), and a signature from any key
   other than the pinned fingerprint fails the download. Pop!_OS, Bazzite
-  and netboot.xyz publish no signatures — those remain checksum + TLS only.
+  and netboot.xyz publish no signatures — those remain checksum + TLS only —
+  and Omarchy publishes neither signatures nor checksums.
 - **Latest releases are resolved dynamically** — no hardcoded version numbers
   that go stale.
 - **Writes are verified** by reading the device back (direct I/O, bypassing
@@ -68,7 +72,7 @@ sha256sum -c SHA256SUMS && install -Dm755 usb-creator ~/.local/bin/usb-creator
 - `util-linux` (lsblk 2.37+, findmnt)
 - `curl`
 - `jq`
-- `sudo` — for the privileged steps (dd, umount) when not run as root
+- `sudo` — for the privileged steps (dd, umount, eject) when not run as root
 - `gnupg` — optional but recommended; without it, signature verification
   is skipped with a loud warning
 
@@ -89,7 +93,7 @@ usb-creator list                     # list candidate USB devices
 usb-creator distros                  # list supported distros
 usb-creator info <distro>            # show resolved URL + checksum
 usb-creator download <distro>        # download + verify into the cache
-usb-creator write [options]         # write an image
+usb-creator write [options]          # write an image
 ```
 
 ### Write options
@@ -120,7 +124,7 @@ usb-creator write [options]         # write an image
 | `bazzite` | Bazzite KDE desktop (gaming-focused Fedora), stable (amd64) |
 | `cachyos` | CachyOS desktop (performance-optimized Arch), latest (x86_64) |
 | `kali` | Kali Linux Live, latest release (amd64) |
-| `omarchy` | Omarchy — opinionated Arch/Hyprland by DHH (amd64) † |
+| `omarchy` | Omarchy — opinionated Arch/Hyprland by DHH (amd64). **No upstream checksums or signatures — TLS-only download** † |
 | `netbootxyz` | netboot.xyz network installer (~2 MB, boots many distros) |
 
 † Omarchy publishes neither checksums nor signatures, so its download can
@@ -147,12 +151,15 @@ usb-creator info arch
 
 Downloaded ISOs are cached in `~/.cache/usb-creator` (override with
 `USB_CREATOR_CACHE` or `XDG_CACHE_HOME`) and reused when their checksum
-still matches.
+still matches (where the distro publishes one).
 
 ## Development
 
-- `tests/test.sh` — offline test suite (no network, no root, no devices);
-  runs in CI on every push and PR alongside shellcheck.
+- `make test` / `make lint` — offline test suite (`tests/test.sh`; no
+  network, no root, no devices) and shellcheck; both run in CI on every
+  push and PR. CodeQL additionally analyzes the GitHub Actions workflows.
+- `usb-creator.spdx.json` — SPDX SBOM, regenerated per release
+  (`make sbom`) and shipped as an attested release asset.
 - Releases are built by CI on tag push (`git tag -a vX.Y.Z && git push
   origin vX.Y.Z`) with Sigstore build provenance. Verify a downloaded
   release with: `gh attestation verify usb-creator --repo Reventlow/usb-creator`

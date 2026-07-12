@@ -1,0 +1,28 @@
+name: CodeQL
+
+# SAST for the parts of this repo CodeQL understands: the GitHub Actions
+# workflows themselves (supply-chain surface). Shell code is statically
+# analyzed by ShellCheck in ci.yml — CodeQL has no bash support.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '30 7 * * 2'
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: github/codeql-action/init@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
+        with:
+          languages: actions
+
+      - uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0

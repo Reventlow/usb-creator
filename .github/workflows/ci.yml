@@ -18,7 +18,7 @@ jobs:
         run: bash -n usb-creator
 
       - name: ShellCheck (SAST for shell)
-        run: shellcheck -x usb-creator tests/test.sh
+        run: shellcheck -x usb-creator tests/test.sh scripts/gen-sbom.sh
 
       - name: PKGBUILD sanity
         run: bash -n PKGBUILD
@@ -26,10 +26,16 @@ jobs:
       - name: Help runs without network or root
         run: ./usb-creator --help
 
+      - name: Committed SBOM is valid and matches VERSION
+        run: |
+          jq empty usb-creator.spdx.json
+          [[ "$(jq -r '.packages[0].versionInfo' usb-creator.spdx.json)" == \
+             "$(sed -n 's/^VERSION="\(.*\)"/\1/p' usb-creator)" ]]
+
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Run test suite
-        run: bash tests/test.sh
+        run: make test

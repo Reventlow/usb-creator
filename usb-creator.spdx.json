@@ -1,0 +1,117 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "usb-creator-0.5.1",
+  "documentNamespace": "https://github.com/Reventlow/usb-creator/spdx/0.5.1",
+  "creationInfo": {
+    "created": "2026-07-12T13:04:19Z",
+    "creators": [
+      "Tool: scripts/gen-sbom.sh",
+      "Person: Gorm Reventlow"
+    ]
+  },
+  "packages": [
+    {
+      "name": "usb-creator",
+      "SPDXID": "SPDXRef-Package-usb-creator",
+      "versionInfo": "0.5.1",
+      "downloadLocation": "git+https://github.com/Reventlow/usb-creator.git",
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "631f564606852becf88a1371ff41b6320ee8a0e2edb0ae2212e144578f79a857"
+        }
+      ],
+      "primaryPackagePurpose": "APPLICATION"
+    },
+    {
+      "name": "bash",
+      "SPDXID": "SPDXRef-Package-bash",
+      "versionInfo": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "coreutils",
+      "SPDXID": "SPDXRef-Package-coreutils",
+      "versionInfo": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "util-linux",
+      "SPDXID": "SPDXRef-Package-util-linux",
+      "versionInfo": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "curl",
+      "SPDXID": "SPDXRef-Package-curl",
+      "versionInfo": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "jq",
+      "SPDXID": "SPDXRef-Package-jq",
+      "versionInfo": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "filesAnalyzed": false
+    },
+    {
+      "name": "gnupg",
+      "SPDXID": "SPDXRef-Package-gnupg",
+      "versionInfo": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "filesAnalyzed": false
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-usb-creator"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-usb-creator",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-bash"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-usb-creator",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-coreutils"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-usb-creator",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-util-linux"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-usb-creator",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-curl"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-usb-creator",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-jq"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-gnupg",
+      "relationshipType": "OPTIONAL_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-usb-creator"
+    }
+  ]
+}

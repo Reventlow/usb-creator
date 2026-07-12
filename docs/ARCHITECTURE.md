@@ -56,7 +56,9 @@ fetched — the pin is the anchor, not the transport.
 7. After writing, the image-sized prefix of the device is read back with
    direct I/O and its hash compared against the source file.
 
-## Decisions (mini-ADRs)
+## Decisions
+
+Full records live in [adr/](adr/); summaries:
 
 - **dd-mode images, no Ventoy/persistence**: every supported distro ships
   hybrid ISOs that expect raw writing; multiboot adds a bootloader that
