@@ -18,7 +18,7 @@
 # License: MIT
 set -euo pipefail
 
-VERSION="0.3.0"
+VERSION="0.4.0"
 SCRIPT_NAME="$(basename "$0")"
 CACHE_DIR="${USB_CREATOR_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/usb-creator}"
 
@@ -331,13 +331,16 @@ fetch_signed_sums() {
 #   RESOLVED_URL      full download URL for the ISO
 #   RESOLVED_FILE     filename used in the local cache
 #   RESOLVED_HASH     expected hash (lowercase hex) from the official sums
-#   RESOLVED_ALGO     hash algorithm, "sha256" (default) or "sha512"
+#   RESOLVED_ALGO     hash algorithm: "sha256" (default), "sha512", or
+#                     "none" for upstreams that publish no integrity data
+#                     at all (download trust rests on TLS alone — warned
+#                     loudly; the post-write read-back check still runs)
 # Resolvers scrape the official "current/latest" locations so the tool never
 # hardcodes version numbers.
 # ---------------------------------------------------------------------------
 
 DISTRO_IDS=(ubuntu debian fedora arch mint opensuse alpine popos endeavouros
-            bazzite kali netbootxyz)
+            bazzite kali omarchy netbootxyz)
 
 declare -A DISTRO_DESC=(
     [ubuntu]="Ubuntu Desktop, latest LTS (amd64)"
@@ -351,6 +354,7 @@ declare -A DISTRO_DESC=(
     [endeavouros]="EndeavourOS, latest release (x86_64)"
     [bazzite]="Bazzite KDE desktop (gaming-focused Fedora), stable (amd64)"
     [kali]="Kali Linux Live, latest release (amd64)"
+    [omarchy]="Omarchy — opinionated Arch/Hyprland by DHH (amd64)"
     [netbootxyz]="netboot.xyz network installer (tiny, boots many distros)"
 )
 
@@ -578,6 +582,18 @@ resolve_kali() {
     RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
 }
 
+resolve_omarchy() {
+    # Omarchy publishes neither checksums nor signatures — only the ISO
+    # itself over TLS. The homepage carries the current version's URL.
+    local page
+    page=$(fetch "https://omarchy.org") || die "cannot reach omarchy.org"
+    RESOLVED_URL=$(grep -oE 'https://iso\.omarchy\.org/omarchy-[0-9]+\.[0-9]+\.[0-9]+\.iso' \
+        <<<"$page" | head -1)
+    [[ -n "$RESOLVED_URL" ]] || die "no ISO link found on omarchy.org"
+    RESOLVED_FILE="${RESOLVED_URL##*/}"
+    RESOLVED_ALGO="none"
+}
+
 resolve_netbootxyz() {
     local base="https://boot.netboot.xyz/ipxe"
     local sums
@@ -595,6 +611,10 @@ resolve_distro() {
     RESOLVED_ISO_SIG_URL="" RESOLVED_GPG_ID="$id"
     info "Resolving latest release for '$id'..."
     "resolve_$id"
+    if [[ "$RESOLVED_ALGO" == "none" ]]; then
+        warn "$id publishes no checksums or signatures — download integrity rests on TLS alone"
+        return 0
+    fi
     local want=64
     [[ "$RESOLVED_ALGO" == "sha512" ]] && want=128
     [[ "$RESOLVED_HASH" =~ ^[0-9a-f]+$ && ${#RESOLVED_HASH} -eq $want ]] \
@@ -703,8 +723,13 @@ device_summary() {
 # ---------------------------------------------------------------------------
 
 # Verify a file against an expected hash; algo is "sha256" or "sha512".
+# algo "none" means the upstream publishes nothing to verify against.
 verify_hash() {
     local file="$1" expected="${2,,}" algo="${3:-sha256}" actual
+    if [[ "$algo" == "none" ]]; then
+        warn "no upstream checksum exists for $(basename "$file") — integrity check skipped"
+        return 0
+    fi
     info "Verifying ${algo^^} of $(basename "$file")..."
     actual=$("${algo}sum" "$file" | awk '{print tolower($1)}')
     [[ "$actual" == "$expected" ]]
@@ -739,7 +764,7 @@ download_iso() {
 
     verify_hash "$target" "$RESOLVED_HASH" "$RESOLVED_ALGO" \
         || { rm -f -- "$target"; die "checksum mismatch — deleted corrupt download, please retry"; }
-    ok "Checksum verified ($RESOLVED_HASH)"
+    [[ "$RESOLVED_ALGO" == "none" ]] || ok "Checksum verified ($RESOLVED_HASH)"
     verify_iso_signature "$target"
     printf '%s\n' "$target"
 }
@@ -874,8 +899,13 @@ cmd_info() {
     printf 'distro:   %s\n' "$OPT_DISTRO"
     printf 'file:     %s\n' "$RESOLVED_FILE"
     printf 'url:      %s\n' "$RESOLVED_URL"
-    printf '%-9s %s\n' "$RESOLVED_ALGO:" "$RESOLVED_HASH"
+    if [[ "$RESOLVED_ALGO" == "none" ]]; then
+        printf 'checksum: NONE published by upstream (TLS-only download)\n'
+    else
+        printf '%-9s %s\n' "$RESOLVED_ALGO:" "$RESOLVED_HASH"
+    fi
     local gpgline="no signatures published (checksum + TLS only)"
+    [[ "$RESOLVED_ALGO" == "none" ]] && gpgline="none — upstream publishes no integrity data at all"
     if [[ -n "$RESOLVED_ISO_SIG_URL" ]]; then
         gpgline="detached ISO signature, key ${DISTRO_GPG_FPR[$OPT_DISTRO]:-}"
     elif [[ -n "${DISTRO_GPG_FPR[$OPT_DISTRO]:-}" ]]; then

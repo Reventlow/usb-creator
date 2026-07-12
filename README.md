@@ -114,7 +114,12 @@ usb-creator write [options]         # write an image
 | `endeavouros` | EndeavourOS, latest release (x86_64) |
 | `bazzite` | Bazzite KDE desktop (gaming-focused Fedora), stable (amd64) |
 | `kali` | Kali Linux Live, latest release (amd64) |
+| `omarchy` | Omarchy — opinionated Arch/Hyprland by DHH (amd64) † |
 | `netbootxyz` | netboot.xyz network installer (~2 MB, boots many distros) |
+
+† Omarchy publishes neither checksums nor signatures, so its download can
+only be trusted as far as TLS to iso.omarchy.org — the tool says so loudly
+when you use it. The post-write read-back verification still applies.
 
 Anything else: pass your own image with `--iso file.iso`.
 
