@@ -55,6 +55,28 @@ jobs:
           } > /tmp/comment.md
           gh issue comment 1 --repo "${{ github.repository }}" --body-file /tmp/comment.md
 
+      # Mirror the report to the maintainer's self-hosted ntfy. The topic
+      # URL is a secret because the topic name is the access credential.
+      - name: Push report to ntfy
+        if: always() && steps.sweep.outcome != 'skipped'
+        env:
+          NTFY_TOPIC_URL: ${{ secrets.NTFY_TOPIC_URL }}
+        run: |
+          [[ -n "$NTFY_TOPIC_URL" ]] || { echo "no NTFY_TOPIC_URL secret set; skipping"; exit 0; }
+          total=$(wc -l < /tmp/report.txt)
+          pass=$(grep -c '^PASS' /tmp/report.txt || true)
+          prio="default"; tags="white_check_mark"
+          body="All ${total} resolvers healthy"
+          if grep -q '^FAIL' /tmp/report.txt; then
+            prio="high"; tags="rotating_light"
+            body=$(grep '^FAIL' /tmp/report.txt)
+          fi
+          curl -fsS -m 15 \
+            -H "Title: usb-creator sweep: ${pass}/${total} PASS" \
+            -H "Priority: $prio" -H "Tags: $tags" \
+            --data-binary "$body" "$NTFY_TOPIC_URL" >/dev/null \
+            || echo "ntfy publish failed (non-fatal)"
+
       - name: Fail the run if any resolver failed
         if: steps.sweep.outputs.fail == '1'
         run: exit 1
