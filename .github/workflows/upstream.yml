@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   resolvers:
@@ -18,16 +19,41 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Resolve every distro against live upstream
+        id: sweep
         run: |
           fail=0
+          : > /tmp/report.txt
           for d in ubuntu debian fedora arch mint opensuse alpine popos \
                    endeavouros bazzite cachyos kali omarchy zimaos netbootxyz; do
             if ./usb-creator info "$d" >/dev/null 2>&1; then
-              echo "PASS $d"
+              echo "PASS $d" | tee -a /tmp/report.txt
             else
-              echo "FAIL $d"
+              echo "FAIL $d" | tee -a /tmp/report.txt
               ./usb-creator info "$d" 2>&1 | tail -3 || true
               fail=1
             fi
           done
-          exit $fail
+          echo "fail=$fail" >> "$GITHUB_OUTPUT"
+
+      # The weekly report lands as a comment on issue #1 on green weeks
+      # too, so a missing Monday comment is itself a signal. GitHub's
+      # notification mail delivers it to the maintainer's inbox.
+      - name: Post report to issue 1
+        if: always() && steps.sweep.outcome != 'skipped'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          total=$(wc -l < /tmp/report.txt)
+          pass=$(grep -c '^PASS' /tmp/report.txt || true)
+          {
+            echo "**${pass}/${total} PASS** — $(date -u +%Y-%m-%d) ([run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}))"
+            if grep -q '^FAIL' /tmp/report.txt; then
+              echo
+              grep '^FAIL' /tmp/report.txt
+            fi
+          } > /tmp/comment.md
+          gh issue comment 1 --repo "${{ github.repository }}" --body-file /tmp/comment.md
+
+      - name: Fail the run if any resolver failed
+        if: steps.sweep.outputs.fail == '1'
+        run: exit 1
