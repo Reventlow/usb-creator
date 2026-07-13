@@ -24,7 +24,8 @@ jobs:
           fail=0
           : > /tmp/report.txt
           for d in ubuntu debian fedora arch mint opensuse alpine popos \
-                   endeavouros bazzite cachyos kali omarchy zimaos netbootxyz; do
+                   endeavouros bazzite cachyos kali omarchy zimaos freebsd \
+                   openbsd netbootxyz; do
             if ./usb-creator info "$d" >/dev/null 2>&1; then
               echo "PASS $d" | tee -a /tmp/report.txt
             else

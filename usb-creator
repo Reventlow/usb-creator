@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# usb-creator — create bootable USB installers for Linux distributions.
+# usb-creator — create bootable USB installers for Linux and BSD systems.
 #
 # A single-file shell tool that:
 #   * lists safe candidate USB devices (whole removable disks only),
@@ -18,7 +18,7 @@
 # License: MIT
 set -euo pipefail
 
-VERSION="0.6.0"
+VERSION="0.7.0"
 SCRIPT_NAME="$(basename "$0")"
 CACHE_DIR="${USB_CREATOR_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/usb-creator}"
 
@@ -343,7 +343,7 @@ fetch_signed_sums() {
 # ---------------------------------------------------------------------------
 
 DISTRO_IDS=(ubuntu debian fedora arch mint opensuse alpine popos endeavouros
-            bazzite cachyos kali omarchy zimaos netbootxyz)
+            bazzite cachyos kali omarchy zimaos freebsd openbsd netbootxyz)
 
 declare -A DISTRO_DESC=(
     [ubuntu]="Ubuntu Desktop, latest LTS (amd64)"
@@ -360,12 +360,25 @@ declare -A DISTRO_DESC=(
     [kali]="Kali Linux Live, latest release (amd64)"
     [omarchy]="Omarchy — opinionated Arch/Hyprland by DHH (amd64)"
     [zimaos]="ZimaOS installer (IceWhale home-server OS) (x86_64)"
+    [freebsd]="FreeBSD memstick installer, latest RELEASE (amd64)"
+    [openbsd]="OpenBSD USB installer, latest release (amd64)"
     [netbootxyz]="netboot.xyz network installer (tiny, boots many distros)"
 )
 
 # RESOLVED_ALGO is sha256 unless a resolver overrides it (EndeavourOS
-# publishes sha512 sums).
+# publishes sha512 sums). RESOLVED_RAW=1 marks images that are raw disk
+# images rather than ISO9660 (the BSD USB installers) so the "does not
+# look like an ISO" prompt is not raised for them.
 RESOLVED_URL="" RESOLVED_FILE="" RESOLVED_HASH="" RESOLVED_ALGO="sha256"
+RESOLVED_RAW=0
+
+# Extract "SHA256 (filename) = hash" style (BSD-format) checksums, as
+# published by FreeBSD, OpenBSD and Fedora.
+bsd_checksum_for() {
+    local sums="$1" file="$2"
+    awk -v f="$file" \
+        '$1 == "SHA256" && $2 == "(" f ")" { print tolower($4); exit }' <<<"$sums"
+}
 
 # Extract "<hash>  filename" style checksum for a given filename.
 # Accepts the common variants: "hash filename", "hash *filename".
@@ -454,8 +467,7 @@ resolve_fedora() {
         fetch_to "$cfile" "$checksum_url" || die "cannot fetch the Fedora CHECKSUM file"
         gpg_verify_signed fedora "$cfile" \
             || die "GPG verification of the Fedora CHECKSUM FAILED — do not trust this source"
-        signed_hash=$(awk -v f="$RESOLVED_FILE" \
-            '$1 == "SHA256" && $2 == "(" f ")" { print tolower($4); exit }' "$cfile")
+        signed_hash=$(bsd_checksum_for "$(cat "$cfile")" "$RESOLVED_FILE")
         [[ -n "$signed_hash" ]] || die "no entry for $RESOLVED_FILE in the Fedora CHECKSUM file"
         [[ "$signed_hash" == "$RESOLVED_HASH" ]] \
             || die "Fedora releases.json and the signed CHECKSUM disagree — refusing"
@@ -640,6 +652,47 @@ resolve_zimaos() {
     RESOLVED_HASH="${RESOLVED_HASH,,}"
 }
 
+resolve_freebsd() {
+    # download.freebsd.org is project infrastructure. The USB artifact is
+    # the raw memstick image. The newest version directory can hold only
+    # pre-release builds, so walk versions newest-first until one carries
+    # a -RELEASE- checksum file.
+    local base="https://download.freebsd.org/releases/amd64/amd64/ISO-IMAGES"
+    local index ver sums
+    index=$(fetch "$base/") || die "cannot reach $base"
+    # shellcheck disable=SC2013  # version tokens contain no whitespace
+    for ver in $(grep -oE 'href="[0-9]+\.[0-9]+/"' <<<"$index" \
+                 | grep -oE '[0-9]+\.[0-9]+' | sort -urV); do
+        sums=$(fetch "$base/$ver/CHECKSUM.SHA256-FreeBSD-${ver}-RELEASE-amd64" 2>/dev/null) \
+            || continue
+        RESOLVED_FILE="FreeBSD-${ver}-RELEASE-amd64-memstick.img"
+        RESOLVED_HASH=$(bsd_checksum_for "$sums" "$RESOLVED_FILE")
+        [[ -n "$RESOLVED_HASH" ]] || continue
+        RESOLVED_URL="$base/$ver/$RESOLVED_FILE"
+        RESOLVED_RAW=1
+        return 0
+    done
+    die "no FreeBSD RELEASE memstick image found"
+}
+
+resolve_openbsd() {
+    # cdn.openbsd.org is project infrastructure; installXX.img is the raw
+    # USB installer. OpenBSD signs SHA256 with signify (not GPG), whose
+    # per-release keys this tool does not pin — the checksum is trusted
+    # via first-party TLS, like the other checksum-only distros.
+    local base="https://cdn.openbsd.org/pub/OpenBSD"
+    local index ver sums
+    index=$(fetch "$base/") || die "cannot reach $base"
+    ver=$(grep -oE 'href="[0-9]+\.[0-9]+/"' <<<"$index" \
+        | grep -oE '[0-9]+\.[0-9]+' | sort -uV | tail -1)
+    [[ -n "$ver" ]] || die "could not determine latest OpenBSD release"
+    RESOLVED_FILE="install${ver/./}.img"
+    sums=$(fetch "$base/$ver/amd64/SHA256") || die "cannot fetch OpenBSD SHA256"
+    RESOLVED_HASH=$(bsd_checksum_for "$sums" "$RESOLVED_FILE")
+    RESOLVED_URL="$base/$ver/amd64/$RESOLVED_FILE"
+    RESOLVED_RAW=1
+}
+
 resolve_netbootxyz() {
     local base="https://boot.netboot.xyz/ipxe"
     local sums
@@ -654,7 +707,7 @@ resolve_distro() {
     local id="$1"
     declare -F "resolve_$id" >/dev/null || die "unknown distro '$id' (see: $SCRIPT_NAME distros)"
     RESOLVED_URL="" RESOLVED_FILE="" RESOLVED_HASH="" RESOLVED_ALGO="sha256"
-    RESOLVED_ISO_SIG_URL="" RESOLVED_GPG_ID="$id"
+    RESOLVED_ISO_SIG_URL="" RESOLVED_GPG_ID="$id" RESOLVED_RAW=0
     info "Resolving latest release for '$id'..."
     "resolve_$id"
     if [[ "$RESOLVED_ALGO" == "none" ]]; then
@@ -867,7 +920,7 @@ write_iso() {
     (( dev_size >= iso_size )) \
         || die "device is too small: $(human_size "$dev_size") < $(human_size "$iso_size")"
 
-    if ! looks_like_iso "$iso"; then
+    if (( ! RESOLVED_RAW )) && ! looks_like_iso "$iso"; then
         warn "'$(basename "$iso")' does not look like an ISO9660 image"
         if (( ! OPT_YES )); then
             local reply
