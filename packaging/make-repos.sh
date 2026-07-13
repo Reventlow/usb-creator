@@ -65,17 +65,14 @@ cp "$archdir"/usb-creator.db* "$archdir"/usb-creator.files* "$html/arch/"
 for f in "$html/arch"/usb-creator-*.pkg.tar.zst "$html/arch/usb-creator.db.tar.gz"; do
     gpg --detach-sign --local-user "$REPO_KEY_FPR" --output "$f.sig" "$f"
 done
-# repo-add created usb-creator.db as a symlink; ship a real file plus the
-# signature under the name pacman fetches.
-if [[ -L "$html/arch/usb-creator.db" ]]; then
-    rm "$html/arch/usb-creator.db"
-    cp "$html/arch/usb-creator.db.tar.gz" "$html/arch/usb-creator.db"
-    cp "$html/arch/usb-creator.db.tar.gz.sig" "$html/arch/usb-creator.db.sig"
-fi
-if [[ -L "$html/arch/usb-creator.files" ]]; then
-    rm "$html/arch/usb-creator.files"
-    cp "$html/arch/usb-creator.files.tar.gz" "$html/arch/usb-creator.files"
-fi
+# pacman fetches the extension-less names (usb-creator.db, .db.sig,
+# .files). repo-add emits them as symlinks, and CI artifact transfer may
+# have flattened or dropped those — ship real files unconditionally.
+rm -f "$html/arch/usb-creator.db" "$html/arch/usb-creator.db.sig" \
+      "$html/arch/usb-creator.files"
+cp "$html/arch/usb-creator.db.tar.gz"      "$html/arch/usb-creator.db"
+cp "$html/arch/usb-creator.db.tar.gz.sig"  "$html/arch/usb-creator.db.sig"
+cp "$html/arch/usb-creator.files.tar.gz"   "$html/arch/usb-creator.files"
 
 # --- landing page -------------------------------------------------------------
 sed -e "s|__REPO_URL__|$REPO_BASE_URL|g" \
