@@ -159,6 +159,7 @@ usb-creator write [options]          # write an image
 | `cachyos` | CachyOS desktop (performance-optimized Arch), latest (x86_64) |
 | `kali` | Kali Linux Live, latest release (amd64) |
 | `omarchy` | Omarchy — opinionated Arch/Hyprland by DHH (amd64). **No upstream checksums or signatures — TLS-only download** † |
+| `zimaos` | ZimaOS installer (IceWhale home-server OS) (x86_64) |
 | `netbootxyz` | netboot.xyz network installer (~2 MB, boots many distros) |
 
 † Omarchy publishes neither checksums nor signatures, so its download can

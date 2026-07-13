@@ -18,7 +18,7 @@
 # License: MIT
 set -euo pipefail
 
-VERSION="0.5.2"
+VERSION="0.6.0"
 SCRIPT_NAME="$(basename "$0")"
 CACHE_DIR="${USB_CREATOR_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/usb-creator}"
 
@@ -343,7 +343,7 @@ fetch_signed_sums() {
 # ---------------------------------------------------------------------------
 
 DISTRO_IDS=(ubuntu debian fedora arch mint opensuse alpine popos endeavouros
-            bazzite cachyos kali omarchy netbootxyz)
+            bazzite cachyos kali omarchy zimaos netbootxyz)
 
 declare -A DISTRO_DESC=(
     [ubuntu]="Ubuntu Desktop, latest LTS (amd64)"
@@ -359,6 +359,7 @@ declare -A DISTRO_DESC=(
     [cachyos]="CachyOS desktop (performance-optimized Arch), latest (x86_64)"
     [kali]="Kali Linux Live, latest release (amd64)"
     [omarchy]="Omarchy — opinionated Arch/Hyprland by DHH (amd64)"
+    [zimaos]="ZimaOS installer (IceWhale home-server OS) (x86_64)"
     [netbootxyz]="netboot.xyz network installer (tiny, boots many distros)"
 )
 
@@ -619,6 +620,24 @@ resolve_omarchy() {
     [[ -n "$RESOLVED_URL" ]] || die "no ISO link found on omarchy.org"
     RESOLVED_FILE="${RESOLVED_URL##*/}"
     RESOLVED_ALGO="none"
+}
+
+resolve_zimaos() {
+    # GitHub is ZimaOS's release channel. The expected hash is GitHub's
+    # per-asset sha256 digest from the releases API — IceWhale's own
+    # checksum files cover only the ZimaCube .img variants, not this ISO,
+    # so the API digest (same trust anchor as the release itself) is the
+    # authoritative integrity statement available.
+    local json
+    json=$(fetch "https://api.github.com/repos/IceWhaleTech/ZimaOS/releases/latest") \
+        || die "cannot reach the ZimaOS releases API"
+    read -r RESOLVED_URL RESOLVED_HASH < <(jq -r '
+        [.assets[] | select(.name | test("^zimaos-x86_64-.*_installer\\.iso$"))][0]
+        | ((.browser_download_url // "") + " "
+           + ((.digest // "") | sub("^sha256:"; "")))' <<<"$json") || true
+    [[ -n "${RESOLVED_URL:-}" ]] || die "no installer ISO in the latest ZimaOS release"
+    RESOLVED_FILE="${RESOLVED_URL##*/}"
+    RESOLVED_HASH="${RESOLVED_HASH,,}"
 }
 
 resolve_netbootxyz() {
