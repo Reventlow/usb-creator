@@ -30,22 +30,22 @@ the new tag; rolling back means running the previous one.
    - Image: `ghcr.io/reventlow/usb-creator-repo:latest`
    - Port: host `8090` → container `80`
    - No volumes, no privileges needed (static files only).
-2. **DNS** — `A` record for `repo.reventlow.com` → your public IP
+2. **DNS** — `A` record for `usb-creator.blacklog.net` → your public IP
    (dynamic-DNS update if the home IP changes).
 3. **Router** — forward TCP 80 and 443 to the Zima box
    (nginx-proxy-manager listens on 8080/8443; map 80→8080, 443→8443).
 4. **nginx-proxy-manager** — add a Proxy Host:
-   - Domain: `repo.reventlow.com` → `http://<zima-ip>:8090`
+   - Domain: `usb-creator.blacklog.net` → `http://<zima-ip>:8090`
    - SSL: request a Let's Encrypt certificate, enable Force SSL + HTTP/2.
 5. **Updates** — after each release, pull the new image (ZimaOS update
    button, or the `update_app_image` automation). Nothing else changes.
 
-The public base URL is `https://repo.reventlow.com` by default; override
+The public base URL is `https://usb-creator.blacklog.net` by default; override
 with a repository Actions variable `REPO_BASE_URL` if the domain differs.
 
 ## Client setup
 
-Served on the landing page (`https://repo.reventlow.com`) with copy-paste
+Served on the landing page (`https://usb-creator.blacklog.net`) with copy-paste
 blocks; in short:
 
 - **apt**: key to `/usr/share/keyrings/usb-creator.asc`, one

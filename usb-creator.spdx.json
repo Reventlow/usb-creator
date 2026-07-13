@@ -2,10 +2,10 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "usb-creator-0.5.1",
-  "documentNamespace": "https://github.com/Reventlow/usb-creator/spdx/0.5.1",
+  "name": "usb-creator-0.5.2",
+  "documentNamespace": "https://github.com/Reventlow/usb-creator/spdx/0.5.2",
   "creationInfo": {
-    "created": "2026-07-12T13:04:19Z",
+    "created": "2026-07-13T07:18:49Z",
     "creators": [
       "Tool: scripts/gen-sbom.sh",
       "Person: Gorm Reventlow"
@@ -15,7 +15,7 @@
     {
       "name": "usb-creator",
       "SPDXID": "SPDXRef-Package-usb-creator",
-      "versionInfo": "0.5.1",
+      "versionInfo": "0.5.2",
       "downloadLocation": "git+https://github.com/Reventlow/usb-creator.git",
       "licenseConcluded": "MIT",
       "licenseDeclared": "MIT",
@@ -23,7 +23,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "631f564606852becf88a1371ff41b6320ee8a0e2edb0ae2212e144578f79a857"
+          "checksumValue": "04a2a8feb9765026a755ad8d94269ae15b7c3ac5d0e7c9ca3dafe67728c71847"
         }
       ],
       "primaryPackagePurpose": "APPLICATION"
