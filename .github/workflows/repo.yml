@@ -1,0 +1,97 @@
+name: Package repo
+
+# On every release tag (and on demand for testing) build the .deb, .rpm
+# and pacman packages, assemble GPG-signed apt/rpm/arch repository trees,
+# and push them baked into an nginx image:
+#   ghcr.io/reventlow/usb-creator-repo:{latest,<version>}   (tags)
+#   ghcr.io/reventlow/usb-creator-repo:test                 (manual runs)
+# The Zima box serves this image; updating the repo = pulling the image.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  REPO_BASE_URL: ${{ vars.REPO_BASE_URL != '' && vars.REPO_BASE_URL || 'https://repo.reventlow.com' }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  arch-pkg:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install build tooling
+        run: pacman -Syu --noconfirm --needed base-devel git
+
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Build package and repo database
+        run: |
+          useradd -m builder
+          chown -R builder: .
+          su builder -c "makepkg -f --nodeps"
+          mkdir -p /tmp/archpkg
+          cp usb-creator-*.pkg.tar.zst /tmp/archpkg/
+          su builder -c "repo-add /tmp/archpkg/usb-creator.db.tar.gz /tmp/archpkg/usb-creator-*.pkg.tar.zst"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: archpkg
+          path: /tmp/archpkg/
+
+  build-image:
+    runs-on: ubuntu-latest
+    needs: arch-pkg
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: archpkg
+          path: archpkg/
+
+      - name: Install repo tooling
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -qy reprepro createrepo-c rpm
+
+      - name: Import signing key
+        env:
+          REPO_SIGNING_KEY: ${{ secrets.REPO_SIGNING_KEY }}
+        run: |
+          printf '%s' "$REPO_SIGNING_KEY" | gpg --batch --import
+          [[ "$(gpg --list-secret-keys --with-colons | awk -F: '$1=="fpr"{print $10; exit}')" \
+             == "$(cat packaging/repo-key.fpr)" ]]
+
+      - name: Build deb and rpm
+        run: |
+          packaging/build-deb.sh debpkg
+          packaging/build-rpm.sh rpmpkg
+
+      - name: Assemble signed repository trees
+        env:
+          GPG_TTY: ""
+        run: |
+          REPO_KEY_FPR=$(cat packaging/repo-key.fpr) \
+            packaging/make-repos.sh packaging/html debpkg rpmpkg archpkg
+
+      - name: Build and push image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver=$(sed -n 's/^VERSION="\(.*\)"/\1/p' usb-creator)
+          image=ghcr.io/reventlow/usb-creator-repo
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker build -t "$image:build" packaging/
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            docker tag "$image:build" "$image:latest"
+            docker tag "$image:build" "$image:$ver"
+            docker push "$image:latest"
+            docker push "$image:$ver"
+          else
+            docker tag "$image:build" "$image:test"
+            docker push "$image:test"
+          fi

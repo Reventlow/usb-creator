@@ -6,7 +6,7 @@ test:
 
 lint:
 	bash -n usb-creator
-	shellcheck -x usb-creator tests/test.sh scripts/gen-sbom.sh
+	shellcheck -x usb-creator tests/test.sh scripts/gen-sbom.sh packaging/*.sh
 
 sbom:
 	scripts/gen-sbom.sh > usb-creator.spdx.json

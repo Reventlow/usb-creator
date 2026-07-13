@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>usb-creator package repository</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 46rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.6; color: #1a1a1a; background: #fafafa; }
+  h1 { font-size: 1.6rem; } h2 { font-size: 1.15rem; margin-top: 2rem; }
+  pre { background: #14161a; color: #e6e6e6; padding: .8rem 1rem; border-radius: 6px; overflow-x: auto; font-size: .85rem; }
+  code { font-family: ui-monospace, monospace; }
+  .key { font-size: .8rem; color: #555; word-break: break-all; }
+  a { color: #0b62a4; }
+  @media (prefers-color-scheme: dark) { body { background: #14161a; color: #ddd; } .key { color: #999; } a { color: #6db3e8; } }
+</style>
+</head>
+<body>
+<h1>usb-creator — package repository</h1>
+<p>Self-hosted repository for
+<a href="https://github.com/Reventlow/usb-creator">usb-creator</a>
+(currently v__VERSION__), a single-file bash tool that writes verified
+Linux installer ISOs to USB sticks.</p>
+<p class="key">Signing key: <code>__FPR__</code>
+(<a href="repo-key.asc">repo-key.asc</a>)</p>
+
+<h2>Debian / Ubuntu (apt)</h2>
+<pre>curl -fsSL __REPO_URL__/repo-key.asc | sudo tee /usr/share/keyrings/usb-creator.asc &gt;/dev/null
+echo "deb [signed-by=/usr/share/keyrings/usb-creator.asc] __REPO_URL__/apt stable main" | sudo tee /etc/apt/sources.list.d/usb-creator.list
+sudo apt update &amp;&amp; sudo apt install usb-creator</pre>
+
+<h2>Fedora / openSUSE (dnf / zypper)</h2>
+<pre>sudo curl -fsSL -o /etc/yum.repos.d/usb-creator.repo __REPO_URL__/rpm/usb-creator.repo
+sudo dnf install usb-creator</pre>
+
+<h2>Arch / CachyOS / EndeavourOS (pacman)</h2>
+<pre>curl -fsSL __REPO_URL__/repo-key.asc | sudo pacman-key --add -
+sudo pacman-key --lsign-key __FPR__
+printf '[usb-creator]\nServer = __REPO_URL__/arch\n' | sudo tee -a /etc/pacman.conf
+sudo pacman -Sy usb-creator</pre>
+
+<p>Packages are built and this image is assembled by
+<a href="https://github.com/Reventlow/usb-creator/actions">GitHub Actions</a>
+on every release; the repository metadata is GPG-signed with the key above.</p>
+</body>
+</html>

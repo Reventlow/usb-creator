@@ -56,6 +56,10 @@ install -Dm755 usb-creator ~/.local/bin/usb-creator
 sudo install -Dm755 usb-creator /usr/local/bin/usb-creator
 ```
 
+Or use the self-hosted package repository (apt / dnf / pacman) — see
+[docs/REPO.md](docs/REPO.md) and the instructions on the repo's landing
+page.
+
 Quick install without cloning — fetches the latest release and verifies
 its checksum before installing:
 

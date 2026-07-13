@@ -18,7 +18,7 @@ jobs:
         run: bash -n usb-creator
 
       - name: ShellCheck (SAST for shell)
-        run: shellcheck -x usb-creator tests/test.sh scripts/gen-sbom.sh
+        run: shellcheck -x usb-creator tests/test.sh scripts/gen-sbom.sh packaging/*.sh
 
       - name: PKGBUILD sanity
         run: bash -n PKGBUILD
