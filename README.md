@@ -38,6 +38,40 @@ with the guard rails you actually want:
 
 ## Installation
 
+### From the package repository (recommended — automatic updates)
+
+Signed packages for the three big package-manager families, served from
+[usb-creator.blacklog.net](https://usb-creator.blacklog.net). Repository
+metadata is GPG-signed with key
+`CA013C00F3BBC48E84FB0240FA345B35D11154EA`
+([trust chain](docs/REPO.md)).
+
+**Debian / Ubuntu (apt):**
+
+```bash
+curl -fsSL https://usb-creator.blacklog.net/repo-key.asc | sudo tee /usr/share/keyrings/usb-creator.asc >/dev/null
+echo "deb [signed-by=/usr/share/keyrings/usb-creator.asc] https://usb-creator.blacklog.net/apt stable main" | sudo tee /etc/apt/sources.list.d/usb-creator.list
+sudo apt update && sudo apt install usb-creator
+```
+
+**Fedora / openSUSE (dnf / zypper):**
+
+```bash
+sudo curl -fsSL -o /etc/yum.repos.d/usb-creator.repo https://usb-creator.blacklog.net/rpm/usb-creator.repo
+sudo dnf install usb-creator
+```
+
+**Arch / CachyOS / EndeavourOS (pacman):**
+
+```bash
+curl -fsSL https://usb-creator.blacklog.net/repo-key.asc | sudo pacman-key --add -
+sudo pacman-key --lsign-key CA013C00F3BBC48E84FB0240FA345B35D11154EA
+printf '[usb-creator]\nServer = https://usb-creator.blacklog.net/arch\n' | sudo tee -a /etc/pacman.conf
+sudo pacman -Sy usb-creator
+```
+
+### From source or a release
+
 ```bash
 git clone https://github.com/Reventlow/usb-creator.git
 cd usb-creator
@@ -55,10 +89,6 @@ install -Dm755 usb-creator ~/.local/bin/usb-creator
 # Or system-wide
 sudo install -Dm755 usb-creator /usr/local/bin/usb-creator
 ```
-
-Or use the self-hosted package repository (apt / dnf / pacman) — see
-[docs/REPO.md](docs/REPO.md) and the instructions on the repo's landing
-page.
 
 Quick install without cloning — fetches the latest release and verifies
 its checksum before installing:
