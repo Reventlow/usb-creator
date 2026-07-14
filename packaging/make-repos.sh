@@ -56,6 +56,7 @@ enabled=1
 gpgcheck=0
 repo_gpgcheck=1
 gpgkey=$REPO_BASE_URL/repo-key.asc
+metadata_expire=1h
 EOF
 
 # --- pacman (Arch/CachyOS/EndeavourOS) ---------------------------------------
