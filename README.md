@@ -23,8 +23,9 @@ with the guard rails you actually want:
   single exception is Omarchy, which publishes no integrity data — see the
   footnote in the distro table.
 - **GPG signatures are verified with pinned keys** wherever the distro
-  publishes them: signed checksum files for Ubuntu, Kubuntu, Debian, Mint,
-  Fedora, openSUSE and Kali; detached signatures over the image itself for
+  publishes them: signed checksum files for Ubuntu (desktop and server),
+  Kubuntu, Debian, Mint, Fedora (both variants), openSUSE, Kali and
+  AlmaLinux; detached signatures over the image itself for
   Arch, Alpine, EndeavourOS, CachyOS, Tails and Qubes OS. Keys live in a
   private keyring under the cache dir
   (your own GnuPG setup is never touched), and a signature from any key
@@ -148,7 +149,10 @@ usb-creator write [options]          # write an image
 | id | image |
 |---|---|
 | `ubuntu` | Ubuntu Desktop, latest LTS (amd64) |
+| `ubuntu-server` | Ubuntu Server, latest LTS (amd64) |
 | `kubuntu` | Kubuntu Desktop, latest release (amd64) |
+| `fedora-server` | Fedora Server DVD, latest release (x86_64) |
+| `almalinux` | AlmaLinux minimal (enterprise, RHEL-compatible) (x86_64) |
 | `debian` | Debian stable netinst (amd64) |
 | `fedora` | Fedora Workstation Live, latest (x86_64) |
 | `arch` | Arch Linux, latest monthly ISO (x86_64) |

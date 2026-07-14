@@ -18,7 +18,7 @@
 # License: MIT
 set -euo pipefail
 
-VERSION="0.9.0"
+VERSION="0.10.0"
 SCRIPT_NAME="$(basename "$0")"
 CACHE_DIR="${USB_CREATOR_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/usb-creator}"
 
@@ -94,7 +94,7 @@ menu_pick() {
     local entries=("$@") i reply n=$#
     printf '\n  %s%s%s\n\n' "$C_BOLD" "$prompt" "$C_OFF" >&2
     for i in "${!entries[@]}"; do
-        printf '  %s%3d%s  %s%-12s%s %s%s%s\n' \
+        printf '  %s%3d%s  %s%-13s%s %s%s%s\n' \
             "$C_DIM" "$((i + 1))" "$C_OFF" \
             "$C_ACCENT" "${entries[$i]%%|*}" "$C_OFF" \
             "$C_MUT" "${entries[$i]#*|}" "$C_OFF" >&2
@@ -295,6 +295,8 @@ run_gpg() {
 #   tails        tails.net/doc/about/openpgp_keys (signing key)
 #   qubes        per-major-release key from keys.qubes-os.org, itself signed
 #                by the Qubes Master Signing Key; new major = pin update
+#   almalinux    per-major key from repo.almalinux.org (currently 10);
+#                new major = pin + key URL update
 # fedora is absent on purpose: its release keys rotate, so the pin set is
 # taken from the first-party bundle at fedoraproject.org/fedora.gpg per run.
 declare -A DISTRO_GPG_FPR=(
@@ -310,6 +312,8 @@ declare -A DISTRO_GPG_FPR=(
     [kubuntu]="843938DF228D22F7B3742BC0D94AA3F0EFE21092"
     [tails]="A490D0F4D311A4153E2BB7CADBB802B258ACD84F"
     [qubes]="F3FA3F99D6281F7B3A3E5E871C3D9B627F3FADA4"
+    [ubuntu-server]="843938DF228D22F7B3742BC0D94AA3F0EFE21092"
+    [almalinux]="EE6DB7B98F5BF5EDD9DA0DE5DEE5C11CC2A1E572"
 )
 
 # Where to obtain each key. The transport does not need to be trusted for
@@ -329,6 +333,8 @@ declare -A DISTRO_GPG_KEYSRC=(
     [kubuntu]="${GPG_KEYSERVER}843938DF228D22F7B3742BC0D94AA3F0EFE21092"
     [tails]="https://tails.net/tails-signing.key"
     [qubes]="https://keys.qubes-os.org/keys/qubes-release-4.3-signing-key.asc"
+    [ubuntu-server]="${GPG_KEYSERVER}843938DF228D22F7B3742BC0D94AA3F0EFE21092"
+    [almalinux]="https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-10"
 )
 
 GPG_DYNAMIC_FPRS=""   # pin set for distros without a static pin (fedora)
@@ -416,13 +422,29 @@ fetch_signed_sums() {
 # hardcodes version numbers.
 # ---------------------------------------------------------------------------
 
-DISTRO_IDS=(ubuntu kubuntu debian fedora arch manjaro mint opensuse alpine
+DISTRO_IDS=(ubuntu kubuntu fedora arch manjaro mint opensuse alpine
             popos endeavouros bazzite cachyos garuda kali tails qubes
-            omarchy zimaos freebsd openbsd netbootxyz)
+            omarchy ubuntu-server debian fedora-server almalinux zimaos
+            freebsd openbsd netbootxyz)
+
+# Wizard grouping: desktop, server, or both (shown in either list).
+declare -A DISTRO_CATEGORY=(
+    [ubuntu]=desktop [kubuntu]=desktop [fedora]=desktop [arch]=desktop
+    [manjaro]=desktop [mint]=desktop [opensuse]=desktop [alpine]=desktop
+    [popos]=desktop [endeavouros]=desktop [bazzite]=desktop
+    [cachyos]=desktop [garuda]=desktop [kali]=desktop [tails]=desktop
+    [qubes]=desktop [omarchy]=desktop
+    [ubuntu-server]=server [debian]=server [fedora-server]=server
+    [almalinux]=server [zimaos]=server [freebsd]=server [openbsd]=server
+    [netbootxyz]=both
+)
 
 declare -A DISTRO_DESC=(
     [ubuntu]="Ubuntu Desktop, latest LTS (amd64)"
+    [ubuntu-server]="Ubuntu Server, latest LTS (amd64)"
     [kubuntu]="Kubuntu Desktop, latest release (amd64)"
+    [fedora-server]="Fedora Server DVD, latest release (x86_64)"
+    [almalinux]="AlmaLinux minimal (enterprise, RHEL-compatible) (x86_64)"
     [debian]="Debian stable netinst (amd64)"
     [fedora]="Fedora Workstation Live, latest release (x86_64)"
     [arch]="Arch Linux, latest monthly ISO (x86_64)"
@@ -471,7 +493,10 @@ checksum_for() {
     ' <<<"$sums"
 }
 
-resolve_ubuntu() {
+# Shared Ubuntu LTS machinery; $1 is the awk regex picking the image out
+# of the (signature-verified) SHA256SUMS.
+resolve_ubuntu_image() {
+    local pattern="$1"
     local base="https://releases.ubuntu.com"
     local index versions ver sums
     index=$(fetch "$base/") || die "cannot reach $base"
@@ -490,12 +515,15 @@ resolve_ubuntu() {
     [[ -n "$ver" ]] || die "could not determine latest Ubuntu LTS from $base"
     sums=$(fetch_signed_sums ubuntu "$base/$ver/SHA256SUMS" "$base/$ver/SHA256SUMS.gpg") \
         || die "cannot fetch Ubuntu SHA256SUMS"
-    RESOLVED_FILE=$(awk '{ fn=$2; sub(/^\*/,"",fn) }
-        fn ~ /^ubuntu-.*-desktop-amd64\.iso$/ { print fn; exit }' <<<"$sums")
-    [[ -n "$RESOLVED_FILE" ]] || die "no desktop ISO found in Ubuntu $ver checksums"
+    RESOLVED_FILE=$(awk -v p="$pattern" '{ fn=$2; sub(/^\*/,"",fn) }
+        fn ~ p { print fn; exit }' <<<"$sums")
+    [[ -n "$RESOLVED_FILE" ]] || die "no matching ISO found in Ubuntu $ver checksums"
     RESOLVED_URL="$base/$ver/$RESOLVED_FILE"
     RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
 }
+
+resolve_ubuntu()        { resolve_ubuntu_image '^ubuntu-.*-desktop-amd64\.iso$'; }
+resolve_ubuntu_server() { resolve_ubuntu_image '^ubuntu-.*-live-server-amd64\.iso$'; }
 
 resolve_kubuntu() {
     # Same cdimage infrastructure and CD-image signing key as Ubuntu. The
@@ -541,33 +569,35 @@ resolve_debian() {
     RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
 }
 
-resolve_fedora() {
-    # Fedora publishes machine-readable release data (used by Media Writer).
+# Shared Fedora machinery. Fedora publishes machine-readable release data
+# (used by Media Writer); the clearsigned CHECKSUM is verified against the
+# first-party key bundle and must agree with releases.json.
+# Args: variant, link substring, release-version regex (capture group 1).
+resolve_fedora_variant() {
+    local variant="$1" linksel="$2" relver_re="$3"
     local json
     json=$(fetch "https://fedoraproject.org/releases.json") \
         || die "cannot fetch Fedora releases.json"
-    read -r RESOLVED_URL RESOLVED_HASH < <(jq -r '
+    read -r RESOLVED_URL RESOLVED_HASH < <(jq -r --arg v "$variant" --arg s "$linksel" '
         [ .[]
-          | select(.variant == "Workstation" and .arch == "x86_64")
-          | select(.link | endswith(".iso"))
+          | select(.variant == $v and .arch == "x86_64")
+          | select(.link | endswith(".iso") and contains($s))
           | select(.version | test("^[0-9]+$")) ]
         | max_by(.version | tonumber)
         | "\(.link) \(.sha256)"' <<<"$json") || true
     [[ -n "${RESOLVED_URL:-}" && "$RESOLVED_URL" != "null" ]] \
-        || die "could not find a Fedora Workstation ISO in releases.json"
+        || die "could not find a Fedora $variant ISO in releases.json"
     RESOLVED_FILE="${RESOLVED_URL##*/}"
     RESOLVED_HASH="${RESOLVED_HASH,,}"
 
-    # Fedora's CHECKSUM files are clearsigned; verify one against the
-    # first-party key bundle and require agreement with releases.json.
     if gpg_active; then
         local relver dir checksum_url cfile signed_hash
-        [[ "$RESOLVED_FILE" =~ -([0-9]+-[0-9.]+)\.x86_64\.iso$ ]] \
+        [[ "$RESOLVED_FILE" =~ $relver_re ]] \
             || die "unexpected Fedora ISO name '$RESOLVED_FILE'"
         relver="${BASH_REMATCH[1]}"
         # dl.fedoraproject.org is first-party (no mirror redirect).
         dir="${RESOLVED_URL%/*}"
-        checksum_url="${dir/download.fedoraproject.org/dl.fedoraproject.org}/Fedora-Workstation-${relver}-x86_64-CHECKSUM"
+        checksum_url="${dir/download.fedoraproject.org/dl.fedoraproject.org}/Fedora-${variant}-${relver}-x86_64-CHECKSUM"
         mktempf cfile
         fetch_to "$cfile" "$checksum_url" || die "cannot fetch the Fedora CHECKSUM file"
         gpg_verify_signed fedora "$cfile" \
@@ -580,6 +610,44 @@ resolve_fedora() {
     else
         warn "GPG signature of the fedora checksums NOT verified (gpg missing or --no-gpg)"
     fi
+}
+
+resolve_fedora() {
+    resolve_fedora_variant Workstation "Workstation-Live" \
+        '-([0-9]+-[0-9.]+)\.x86_64\.iso$'
+}
+
+resolve_fedora_server() {
+    resolve_fedora_variant Server "Server-dvd" \
+        'x86_64-([0-9]+-[0-9.]+)\.iso$'
+}
+
+resolve_almalinux() {
+    # repo.almalinux.org is project infrastructure; the CHECKSUM file is
+    # GPG-clearsigned by the per-major release key. The "latest" alias
+    # tracks the newest point release; the minimal image is the sensible
+    # server-install medium (the dvd is ~10 GB).
+    local base="https://repo.almalinux.org/almalinux"
+    local index major cfile sums
+    index=$(fetch "$base/") || die "cannot reach $base"
+    major=$(grep -oE 'href="[0-9]+/"' <<<"$index" | grep -oE '[0-9]+' | sort -un | tail -1)
+    [[ -n "$major" ]] || die "could not determine the latest AlmaLinux major"
+    RESOLVED_FILE="AlmaLinux-${major}-latest-x86_64-minimal.iso"
+    RESOLVED_URL="$base/$major/isos/x86_64/$RESOLVED_FILE"
+    if gpg_active; then
+        mktempf cfile
+        fetch_to "$cfile" "$base/$major/isos/x86_64/CHECKSUM" \
+            || die "cannot fetch the AlmaLinux CHECKSUM file"
+        gpg_verify_signed almalinux "$cfile" \
+            || die "GPG verification of the AlmaLinux CHECKSUM FAILED — do not trust this source"
+        info "Checksum signature verified (almalinux signing key)"
+        sums=$(cat "$cfile")
+    else
+        warn "GPG signature of the almalinux checksums NOT verified (gpg missing or --no-gpg)"
+        sums=$(fetch "$base/$major/isos/x86_64/CHECKSUM") \
+            || die "cannot fetch the AlmaLinux CHECKSUM file"
+    fi
+    RESOLVED_HASH=$(bsd_checksum_for "$sums" "$RESOLVED_FILE")
 }
 
 resolve_arch() {
@@ -878,11 +946,12 @@ resolve_netbootxyz() {
 
 resolve_distro() {
     local id="$1"
-    declare -F "resolve_$id" >/dev/null || die "unknown distro '$id' (see: $SCRIPT_NAME distros)"
+    declare -F "resolve_${id//-/_}" >/dev/null \
+        || die "unknown distro '$id' (see: $SCRIPT_NAME distros)"
     RESOLVED_URL="" RESOLVED_FILE="" RESOLVED_HASH="" RESOLVED_ALGO="sha256"
     RESOLVED_ISO_SIG_URL="" RESOLVED_GPG_ID="$id" RESOLVED_RAW=0
     info "Resolving latest release for '$id'..."
-    "resolve_$id"
+    "resolve_${id//-/_}"
     if [[ "$RESOLVED_ALGO" == "none" ]]; then
         warn "$id publishes no checksums or signatures — download integrity rests on TLS alone"
         return 0
@@ -1160,11 +1229,15 @@ cmd_list() {
 }
 
 cmd_distros() {
-    local id
-    printf '\n%sAvailable systems%s\n\n' "$O_BOLD" "$O_OFF"
-    for id in "${DISTRO_IDS[@]}"; do
-        printf '  %s%-12s%s %s%s%s\n' \
-            "$O_ACCENT" "$id" "$O_OFF" "$O_MUT" "${DISTRO_DESC[$id]}" "$O_OFF"
+    local id cat c
+    for cat in desktop server; do
+        printf '\n%s%s%s\n\n' "$O_BOLD" "${cat^}" "$O_OFF"
+        for id in "${DISTRO_IDS[@]}"; do
+            c="${DISTRO_CATEGORY[$id]:-desktop}"
+            [[ "$c" == "$cat" || "$c" == "both" ]] || continue
+            printf '  %s%-14s%s %s%s%s\n' \
+                "$O_ACCENT" "$id" "$O_OFF" "$O_MUT" "${DISTRO_DESC[$id]}" "$O_OFF"
+        done
     done
     printf '\n%sUse a local image instead with: %s write --iso file.iso%s\n' \
         "$O_DIM" "$SCRIPT_NAME" "$O_OFF"
@@ -1187,7 +1260,7 @@ cmd_info() {
         gpgline="detached ISO signature, key ${DISTRO_GPG_FPR[$OPT_DISTRO]:-}"
     elif [[ -n "${DISTRO_GPG_FPR[$OPT_DISTRO]:-}" ]]; then
         gpgline="signed checksums, key ${DISTRO_GPG_FPR[$OPT_DISTRO]}"
-    elif [[ "$OPT_DISTRO" == "fedora" ]]; then
+    elif [[ "$OPT_DISTRO" == fedora* ]]; then
         gpgline="signed checksums, keys from fedoraproject.org/fedora.gpg"
     fi
     printf '%sgpg:%s      %s\n' "$O_DIM" "$O_OFF" "$gpgline"
@@ -1243,14 +1316,12 @@ cmd_interactive() {
     [[ -t 0 ]] || die "no terminal available — use explicit commands (see --help)"
     banner
 
-    local entries=() id
-    for id in "${DISTRO_IDS[@]}"; do
-        entries+=("$id|${DISTRO_DESC[$id]}")
-    done
-    entries+=("local ISO|use an image file you already have")
+    menu_pick "What kind of system?" \
+        "desktop|graphical workstations and live systems" \
+        "server|headless installs and home-server systems" \
+        "local ISO|use an image file you already have"
 
-    menu_pick "What do you want to write?" "${entries[@]}"
-    if (( MENU_INDEX == ${#DISTRO_IDS[@]} )); then
+    if (( MENU_INDEX == 2 )); then
         read -e -r -p "  ${C_ACCENT}›${C_OFF} path to image: " OPT_ISO </dev/tty \
             || die "aborted"
         [[ -n "$OPT_ISO" ]] || die "no path entered"
@@ -1258,7 +1329,17 @@ cmd_interactive() {
         # shellcheck disable=SC2088  # comparing against a literal tilde is the point
         [[ "$OPT_ISO" == "~/"* ]] && OPT_ISO="$HOME/${OPT_ISO#\~/}"
     else
-        OPT_DISTRO="${DISTRO_IDS[$MENU_INDEX]}"
+        local kind=desktop
+        (( MENU_INDEX == 1 )) && kind=server
+        local entries=() ids=() id cat
+        for id in "${DISTRO_IDS[@]}"; do
+            cat="${DISTRO_CATEGORY[$id]:-desktop}"
+            [[ "$cat" == "$kind" || "$cat" == "both" ]] || continue
+            ids+=("$id")
+            entries+=("$id|${DISTRO_DESC[$id]}")
+        done
+        menu_pick "Which system?" "${entries[@]}"
+        OPT_DISTRO="${ids[$MENU_INDEX]}"
     fi
 
     # Ask both questions up front — the (possibly long) download starts only
