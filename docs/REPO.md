@@ -19,7 +19,8 @@ instructions on the landing page.
 1. GitHub Actions builds the packages from the tagged source and attests
    the release binaries (Sigstore).
 2. The repository metadata (apt `InRelease`, rpm `repomd.xml.asc`, pacman
-   `.db.sig` + package `.sig`) is signed in CI with the dedicated repo key
+   `.db.sig` + package `.sig`) — and additionally each RPM itself
+   (embedded signature, `gpgcheck=1`) — is signed in CI with the dedicated repo key
    `CA013C00F3BBC48E84FB0240FA345B35D11154EA`
    (public: `packaging/repo-key.asc`, served at `/repo-key.asc`).
 

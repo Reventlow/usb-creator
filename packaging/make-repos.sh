@@ -45,6 +45,15 @@ cp -r "$work/dists" "$work/pool" "$html/apt/"
 # --- rpm (Fedora/openSUSE/RHEL) ----------------------------------------------
 mkdir -p "$html/rpm"
 cp "$rpmdir"/*.rpm "$html/rpm/"
+# Embed a signature in each RPM so dnf's package-level check (gpgcheck=1)
+# passes without warnings. Must happen before createrepo_c: signing
+# changes the file the metadata checksums. apt has no per-deb signature
+# convention (the signed InRelease is the standard); pacman packages are
+# detach-signed below.
+command -v rpmsign >/dev/null 2>&1 \
+    || { echo "error: rpmsign not available — refusing to build unsigned RPMs" >&2; exit 1; }
+printf '%%_gpg_name %s\n%%__gpg %s\n' "$REPO_KEY_FPR" "$(command -v gpg)" > "$HOME/.rpmmacros"
+rpmsign --addsign "$html/rpm/"*.rpm >/dev/null
 createrepo_c "$html/rpm"
 gpg --detach-sign --armor --local-user "$REPO_KEY_FPR" \
     --output "$html/rpm/repodata/repomd.xml.asc" "$html/rpm/repodata/repomd.xml"
@@ -53,7 +62,7 @@ cat > "$html/rpm/usb-creator.repo" <<EOF
 name=usb-creator
 baseurl=$REPO_BASE_URL/rpm/
 enabled=1
-gpgcheck=0
+gpgcheck=1
 repo_gpgcheck=1
 gpgkey=$REPO_BASE_URL/repo-key.asc
 metadata_expire=1h
