@@ -13,3 +13,5 @@ sbom:
 
 install:
 	install -Dm755 usb-creator $(DESTDIR)/usr/local/bin/usb-creator
+	install -Dm644 docs/usb-creator.1 $(DESTDIR)/usr/local/share/man/man1/usb-creator.1
+	install -Dm644 docs/tldr/usb-creator.md $(DESTDIR)/usr/local/share/doc/usb-creator/tldr.md

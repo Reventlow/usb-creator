@@ -196,6 +196,10 @@ usb-creator write --iso ~/isos/proxmox-ve_8.iso --device /dev/sdb
 usb-creator info arch
 ```
 
+`man usb-creator` has the full reference (installed by all package
+formats); a tldr-style quick reference ships as
+[docs/tldr/usb-creator.md](docs/tldr/usb-creator.md).
+
 Downloaded ISOs are cached in `~/.cache/usb-creator` (override with
 `USB_CREATOR_CACHE` or `XDG_CACHE_HOME`) and reused when their checksum
 still matches (where the distro publishes one).

@@ -10,7 +10,8 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 mkdir -p "$work"/{SOURCES,SPECS}
-cp usb-creator README.md LICENSE "$work/SOURCES/"
+cp usb-creator README.md LICENSE docs/usb-creator.1 "$work/SOURCES/"
+cp docs/tldr/usb-creator.md "$work/SOURCES/tldr.md"
 
 cat > "$work/SPECS/usb-creator.spec" <<EOF
 Name:           usb-creator
@@ -32,11 +33,15 @@ to touch disks that back the running system.
 %install
 install -Dm755 %{_sourcedir}/usb-creator %{buildroot}%{_bindir}/usb-creator
 install -Dm644 %{_sourcedir}/README.md %{buildroot}%{_docdir}/usb-creator/README.md
+install -Dm644 %{_sourcedir}/tldr.md %{buildroot}%{_docdir}/usb-creator/tldr.md
+install -Dm644 %{_sourcedir}/usb-creator.1 %{buildroot}%{_mandir}/man1/usb-creator.1
 install -Dm644 %{_sourcedir}/LICENSE %{buildroot}%{_datadir}/licenses/usb-creator/LICENSE
 
 %files
 %{_bindir}/usb-creator
 %doc %{_docdir}/usb-creator/README.md
+%doc %{_docdir}/usb-creator/tldr.md
+%{_mandir}/man1/usb-creator.1*
 %license %{_datadir}/licenses/usb-creator/LICENSE
 EOF
 

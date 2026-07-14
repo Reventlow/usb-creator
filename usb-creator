@@ -18,7 +18,7 @@
 # License: MIT
 set -euo pipefail
 
-VERSION="0.10.0"
+VERSION="0.11.0"
 SCRIPT_NAME="$(basename "$0")"
 CACHE_DIR="${USB_CREATOR_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/usb-creator}"
 
@@ -1403,7 +1403,7 @@ parse_args() {
             --no-verify) OPT_NO_VERIFY=1 ;;
             --no-gpg)    OPT_NO_GPG=1 ;;
             -h|--help)   usage; exit 0 ;;
-            -V|--version) printf '%s\n' "$VERSION"; exit 0 ;;
+            -V|--version) printf 'usb-creator %s\n' "$VERSION"; exit 0 ;;
             *) die "unknown argument '$1' (see --help)" ;;
         esac
         shift

@@ -13,6 +13,9 @@ pkgroot="$work/usb-creator_${ver}_all"
 install -Dm755 usb-creator "$pkgroot/usr/bin/usb-creator"
 install -Dm644 README.md "$pkgroot/usr/share/doc/usb-creator/README.md"
 install -Dm644 LICENSE "$pkgroot/usr/share/doc/usb-creator/copyright"
+install -Dm644 docs/tldr/usb-creator.md "$pkgroot/usr/share/doc/usb-creator/tldr.md"
+install -Dm644 docs/usb-creator.1 "$pkgroot/usr/share/man/man1/usb-creator.1"
+gzip -9n "$pkgroot/usr/share/man/man1/usb-creator.1"
 
 mkdir -p "$pkgroot/DEBIAN"
 cat > "$pkgroot/DEBIAN/control" <<EOF

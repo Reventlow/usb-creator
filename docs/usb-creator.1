@@ -1,0 +1,140 @@
+.TH USB-CREATOR 1 "July 2026" "usb-creator 0.11.0" "User Commands"
+.SH NAME
+usb-creator \- create verified bootable USB installers for Linux and BSD
+.SH SYNOPSIS
+.B usb-creator
+.RI [ command ]
+.RI [ options ]
+.SH DESCRIPTION
+.B usb-creator
+downloads the latest installer image for a curated set of Linux and BSD
+systems, verifies it against the project's official checksums and \(em
+where the project publishes them \(em GPG signatures with pinned key
+fingerprints, writes it to a USB device with
+.BR dd (1)
+semantics, and verifies the write by reading the device back.
+.PP
+It refuses to write to any disk that backs a mounted system path
+.RB ( / ,
+.BR /boot ,
+.BR /efi ,
+.BR /home ,
+swap, ...) or belongs to an imported ZFS pool; no option overrides this.
+Run without a command, it starts an interactive wizard that asks for a
+system category (desktop or server), the image, and the target device.
+.SH COMMANDS
+.TP
+.B list
+List candidate USB devices (whole removable disks only).
+.TP
+.B distros
+List the supported systems, grouped by desktop and server.
+.TP
+.BI info " distro"
+Resolve the latest release: filename, URL, checksum, and how it will be
+verified. Performs signed-checksum verification where applicable.
+.TP
+.BI download " distro"
+Download the image into the cache and verify it. Cached images are
+reused when their checksum still matches.
+.TP
+.B write
+Write an image to a USB device (see OPTIONS).
+.SH OPTIONS
+.TP
+.BI \-\-distro " name"
+Download (or reuse the cached copy of) the named system's image.
+.TP
+.BI \-\-iso " file"
+Use a local image file instead of a downloaded one.
+.TP
+.BI \-\-device " dev"
+Target whole-disk device, e.g.
+.IR /dev/sdb .
+.TP
+.BR \-\-yes ", " \-y
+Skip the interactive confirmation. Requires an explicit
+.BR \-\-device .
+.TP
+.B \-\-force
+Allow non-removable disks. Disks backing the running system remain
+blocked unconditionally.
+.TP
+.B \-\-no\-verify
+Skip the post-write read-back verification.
+.TP
+.B \-\-no\-gpg
+Skip GPG signature verification. Checksums are still enforced.
+.TP
+.BR \-h ", " \-\-help
+Show usage.
+.TP
+.BR \-V ", " \-\-version
+Print the version.
+.SH VERIFICATION MODEL
+Checksums and signatures are only trusted from infrastructure the
+respective project controls; third-party mirrors may serve image bytes
+but never the expectation those bytes are checked against. GPG keys are
+kept in a private keyring under the cache directory \(em the user's own
+GnuPG setup is never touched \(em and a signature by any key other than
+the pinned fingerprint fails the download. Systems whose upstream
+publishes no integrity data at all (e.g. Omarchy) are marked loudly as
+TLS-only. See
+.I docs/ARCHITECTURE.md
+in the source distribution for the full trust table.
+.SH ENVIRONMENT
+.TP
+.B USB_CREATOR_CACHE
+Override the cache directory (default:
+.IR $XDG_CACHE_HOME/usb\-creator ,
+falling back to
+.IR ~/.cache/usb\-creator ).
+.TP
+.B NO_COLOR
+Disable all colored output.
+.SH FILES
+.TP
+.I ~/.cache/usb\-creator
+Downloaded images and the private GnuPG keyring.
+.SH EXIT STATUS
+0 on success, 1 on any error or refused write.
+.SH EXAMPLES
+Interactive wizard:
+.PP
+.nf
+.RS
+usb-creator
+.RE
+.fi
+.PP
+Write the latest Debian netinst, non-interactively:
+.PP
+.nf
+.RS
+usb-creator write --distro debian --device /dev/sdb --yes
+.RE
+.fi
+.PP
+Write a local image:
+.PP
+.nf
+.RS
+usb-creator write --iso ~/isos/custom.iso --device /dev/sdb
+.RE
+.fi
+.PP
+Check what "latest" resolves to without downloading:
+.PP
+.nf
+.RS
+usb-creator info arch
+.RE
+.fi
+.SH SEE ALSO
+.BR dd (1),
+.BR lsblk (8),
+.BR gpg (1)
+.SH AUTHOR
+Gorm Reventlow <gorm@reventlow.com>
+.br
+https://github.com/Reventlow/usb-creator
