@@ -42,11 +42,12 @@ with the guard rails you actually want:
 
 ### From the package repository (recommended — automatic updates)
 
-Signed packages for the three big package-manager families, served from
-[usb-creator.blacklog.net](https://usb-creator.blacklog.net). Repository
-metadata is GPG-signed with key
-`CA013C00F3BBC48E84FB0240FA345B35D11154EA`
-([trust chain](docs/REPO.md)).
+Packages for the three big package-manager families, served from
+[usb-creator.blacklog.net](https://usb-creator.blacklog.net). All
+repository metadata — and the rpm and pacman packages themselves — are
+GPG-signed with key `CA013C00F3BBC48E84FB0240FA345B35D11154EA`
+(`gpgcheck=1` for dnf; apt verifies the signed `InRelease` per its
+standard model). Full [trust chain](docs/REPO.md).
 
 **Debian / Ubuntu (apt):**
 
