@@ -199,8 +199,16 @@ usb-creator info arch
 ```
 
 `man usb-creator` has the full reference (installed by all package
-formats); a tldr-style quick reference ships as
-[docs/tldr/usb-creator.md](docs/tldr/usb-creator.md).
+formats). A tldr-style quick reference ships as
+[docs/tldr/usb-creator.md](docs/tldr/usb-creator.md); tldr clients only
+know pages from the central tldr-pages repo, so to use it locally:
+
+```bash
+# tldr (python client): drop it into the page cache (redo after tldr --update)
+mkdir -p ~/.cache/tldr/pages/common && cp docs/tldr/usb-creator.md ~/.cache/tldr/pages/common/
+# tealdeer: custom pages survive cache updates
+mkdir -p ~/.config/tealdeer/pages && cp docs/tldr/usb-creator.md ~/.config/tealdeer/pages/usb-creator.page
+```
 
 Downloaded ISOs are cached in `~/.cache/usb-creator` (override with
 `USB_CREATOR_CACHE` or `XDG_CACHE_HOME`) and reused when their checksum
