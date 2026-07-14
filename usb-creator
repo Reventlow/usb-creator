@@ -18,7 +18,7 @@
 # License: MIT
 set -euo pipefail
 
-VERSION="0.8.0"
+VERSION="0.9.0"
 SCRIPT_NAME="$(basename "$0")"
 CACHE_DIR="${USB_CREATOR_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/usb-creator}"
 
@@ -35,18 +35,79 @@ OPT_NO_GPG=0             # skip GPG signature verification of downloads
 # Output helpers
 # ---------------------------------------------------------------------------
 
-# Colors only when stderr is a terminal.
-if [[ -t 2 ]]; then
-    C_RED=$'\033[1;31m'; C_YEL=$'\033[1;33m'; C_GRN=$'\033[1;32m'
-    C_BLU=$'\033[1;34m'; C_OFF=$'\033[0m'
-else
-    C_RED=""; C_YEL=""; C_GRN=""; C_BLU=""; C_OFF=""
-fi
+# Palette translated from the Claude design system (Anthropic): one warm
+# chromatic accent (coral/terracotta), warm neutrals, no cool grays.
+# Truecolor when the terminal supports it, 16-color approximations
+# otherwise, nothing when NO_COLOR is set or the stream is not a tty.
+# (The "muted green" for success is interpolated from the system's
+# illustration palette, which defines no green hex.)
+init_palette() {
+    local fd="$1"  # 2 = stderr palette (C_*), 1 = stdout palette (O_*)
+    local on=1 acc brand okc warnc err dim mut
+    [[ -t "$fd" && -z "${NO_COLOR:-}" ]] || on=0
+    if (( on )) && [[ "${COLORTERM:-}" == *truecolor* || "${COLORTERM:-}" == *24bit* ]]; then
+        acc=$'\033[38;2;217;119;87m'    # coral         #d97757 (accent on dark)
+        brand=$'\033[38;2;201;100;66m'  # terracotta    #c96442
+        okc=$'\033[38;2;127;153;113m'   # muted green   (interpolated)
+        warnc=$'\033[38;2;201;165;84m'  # warm amber    (interpolated)
+        err=$'\033[38;2;197;76;66m'     # error crimson #b53333, lifted for dark bg
+        dim=$'\033[38;2;135;134;127m'   # stone gray    #87867f
+        mut=$'\033[38;2;176;174;165m'   # warm silver   #b0aea5
+    elif (( on )); then
+        acc=$'\033[33m' brand=$'\033[33m' okc=$'\033[32m'
+        warnc=$'\033[33m' err=$'\033[31m' dim=$'\033[90m' mut=$'\033[37m'
+    else
+        acc="" brand="" okc="" warnc="" err="" dim="" mut=""
+    fi
+    if [[ "$fd" == 2 ]]; then
+        C_ACCENT="$acc" C_BRAND="$brand" C_OK="$okc" C_WARN="$warnc"
+        C_ERR="$err" C_DIM="$dim" C_MUT="$mut"
+        if (( on )); then C_BOLD=$'\033[1m' C_OFF=$'\033[0m'; else C_BOLD="" C_OFF=""; fi
+    else
+        O_ACCENT="$acc" O_DIM="$dim" O_MUT="$mut"
+        if (( on )); then O_BOLD=$'\033[1m' O_OFF=$'\033[0m'; else O_BOLD="" O_OFF=""; fi
+    fi
+}
+init_palette 2
+init_palette 1
 
-info()  { printf '%s\n' "${C_BLU}::${C_OFF} $*" >&2; }
-ok()    { printf '%s\n' "${C_GRN}OK${C_OFF} $*" >&2; }
-warn()  { printf '%s\n' "${C_YEL}warning:${C_OFF} $*" >&2; }
-die()   { printf '%s\n' "${C_RED}error:${C_OFF} $*" >&2; exit 1; }
+info()  { printf '%s\n' "  ${C_ACCENT}·${C_OFF} $*" >&2; }
+ok()    { printf '%s\n' "  ${C_OK}✓${C_OFF} $*" >&2; }
+warn()  { printf '%s\n' "  ${C_WARN}!${C_OFF} ${C_WARN}warning:${C_OFF} $*" >&2; }
+die()   { printf '%s\n' "  ${C_ERR}✗ error:${C_OFF} $*" >&2; exit 1; }
+
+# The wizard's masthead: brand title, quiet subtitle, gentle rule.
+banner() {
+    {
+        printf '\n  %s%susb-creator%s %sv%s%s\n' \
+            "$C_BRAND" "$C_BOLD" "$C_OFF" "$C_DIM" "$VERSION" "$C_OFF"
+        printf '  %sverified boot media for Linux and BSD%s\n' "$C_MUT" "$C_OFF"
+        printf '  %s──────────────────────────────────────────%s\n' "$C_DIM" "$C_OFF"
+    } >&2
+}
+
+# Render a numbered menu of "id|description" entries and read a choice.
+# Sets MENU_INDEX (0-based). Renders on stderr.
+MENU_INDEX=0
+menu_pick() {
+    local prompt="$1"; shift
+    local entries=("$@") i reply n=$#
+    printf '\n  %s%s%s\n\n' "$C_BOLD" "$prompt" "$C_OFF" >&2
+    for i in "${!entries[@]}"; do
+        printf '  %s%3d%s  %s%-12s%s %s%s%s\n' \
+            "$C_DIM" "$((i + 1))" "$C_OFF" \
+            "$C_ACCENT" "${entries[$i]%%|*}" "$C_OFF" \
+            "$C_MUT" "${entries[$i]#*|}" "$C_OFF" >&2
+    done
+    printf '\n' >&2
+    while :; do
+        read -r -p "  ${C_ACCENT}›${C_OFF} choice [1-$n]: " reply </dev/tty \
+            || die "aborted"
+        [[ "$reply" =~ ^[0-9]+$ ]] && (( reply >= 1 && reply <= n )) && break
+        warn "enter a number between 1 and $n"
+    done
+    MENU_INDEX=$((reply - 1))
+}
 
 # Format a byte count for humans (e.g. 4013948928 -> 3.8G).
 human_size() { numfmt --to=iec --format='%.1f' "$1" 2>/dev/null || printf '%s' "$1"; }
@@ -54,16 +115,19 @@ human_size() { numfmt --to=iec --format='%.1f' "$1" 2>/dev/null || printf '%s' "
 # Draw/refresh a single-line progress bar on stderr.
 # Args: current_bytes total_bytes speed_string eta_string
 draw_bar() {
-    local cur=$1 total=$2 speed="$3" eta="$4" width=28 pct=0 filled i bar=""
+    local cur=$1 total=$2 speed="$3" eta="$4" width=28 pct=0 filled i
+    local fill="" track=""
     (( total > 0 )) && pct=$(( cur * 100 / total ))
     (( pct > 100 )) && pct=100
     filled=$(( pct * width / 100 ))
     for (( i = 0; i < width; i++ )); do
-        if (( i < filled )); then bar+="█"; else bar+="░"; fi
+        if (( i < filled )); then fill+="█"; else track+="░"; fi
     done
-    printf '\r\033[K  %s %3d%%  %s / %s  %s  ETA %s ' \
-        "$bar" "$pct" "$(human_size "$cur")" "$(human_size "$total")" \
-        "$speed" "$eta" >&2
+    printf '\r\033[K  %s%s%s%s%s %s%3d%%%s  %s / %s  %s%s · ETA %s%s ' \
+        "$C_ACCENT" "$fill" "$C_DIM" "$track" "$C_OFF" \
+        "$C_BOLD" "$pct" "$C_OFF" \
+        "$(human_size "$cur")" "$(human_size "$total")" \
+        "$C_DIM" "$speed" "$eta" "$C_OFF" >&2
 }
 
 # Turn dd's status=progress stream (read from stdin) into a progress bar.
@@ -1005,16 +1069,19 @@ looks_like_iso() {
 
 confirm_write() {
     local dev="$1" iso="$2"
-    printf '\n' >&2
-    warn "ALL DATA ON THE FOLLOWING DEVICE WILL BE DESTROYED:"
-    printf '    %s\n' "$(device_summary "$dev")" >&2
-    printf '    image: %s (%s)\n\n' "$(basename "$iso")" \
-        "$(human_size "$(stat -c %s "$iso")")" >&2
+    {
+        printf '\n  %s──────────────────────────────────────────────────%s\n' "$C_ERR" "$C_OFF"
+        printf '  %s%s⚠  ALL DATA ON THIS DEVICE WILL BE ERASED%s\n\n' "$C_ERR" "$C_BOLD" "$C_OFF"
+        printf '     %s\n' "$(device_summary "$dev")"
+        printf '     %simage:%s %s %s(%s)%s\n' "$C_DIM" "$C_OFF" "$(basename "$iso")" \
+            "$C_DIM" "$(human_size "$(stat -c %s "$iso")")" "$C_OFF"
+        printf '  %s──────────────────────────────────────────────────%s\n\n' "$C_ERR" "$C_OFF"
+    } >&2
 
     (( OPT_YES )) && return 0
     local expected reply
     expected="$(basename "$dev")"
-    read -r -p "Type the device name '$expected' to continue (anything else aborts): " reply \
+    read -r -p "  ${C_ACCENT}›${C_OFF} type the device name '$expected' to continue (anything else aborts): " reply \
         || die "aborted — no data was written"
     [[ "$reply" == "$expected" ]] || die "aborted — no data was written"
 }
@@ -1094,23 +1161,25 @@ cmd_list() {
 
 cmd_distros() {
     local id
-    printf 'Available distros:\n'
+    printf '\n%sAvailable systems%s\n\n' "$O_BOLD" "$O_OFF"
     for id in "${DISTRO_IDS[@]}"; do
-        printf '  %-12s %s\n' "$id" "${DISTRO_DESC[$id]}"
+        printf '  %s%-12s%s %s%s%s\n' \
+            "$O_ACCENT" "$id" "$O_OFF" "$O_MUT" "${DISTRO_DESC[$id]}" "$O_OFF"
     done
-    printf '\nUse a local image instead with: %s write --iso file.iso\n' "$SCRIPT_NAME"
+    printf '\n%sUse a local image instead with: %s write --iso file.iso%s\n' \
+        "$O_DIM" "$SCRIPT_NAME" "$O_OFF"
 }
 
 cmd_info() {
     [[ -n "$OPT_DISTRO" ]] || die "usage: $SCRIPT_NAME info <distro>"
     resolve_distro "$OPT_DISTRO"
-    printf 'distro:   %s\n' "$OPT_DISTRO"
-    printf 'file:     %s\n' "$RESOLVED_FILE"
-    printf 'url:      %s\n' "$RESOLVED_URL"
+    printf '%sdistro:%s   %s\n' "$O_DIM" "$O_OFF" "$OPT_DISTRO"
+    printf '%sfile:%s     %s\n' "$O_DIM" "$O_OFF" "$RESOLVED_FILE"
+    printf '%surl:%s      %s\n' "$O_DIM" "$O_OFF" "$RESOLVED_URL"
     if [[ "$RESOLVED_ALGO" == "none" ]]; then
-        printf 'checksum: NONE published by upstream (TLS-only download)\n'
+        printf '%schecksum:%s NONE published by upstream (TLS-only download)\n' "$O_DIM" "$O_OFF"
     else
-        printf '%-9s %s\n' "$RESOLVED_ALGO:" "$RESOLVED_HASH"
+        printf '%s%-9s%s %s\n' "$O_DIM" "$RESOLVED_ALGO:" "$O_OFF" "$RESOLVED_HASH"
     fi
     local gpgline="no signatures published (checksum + TLS only)"
     [[ "$RESOLVED_ALGO" == "none" ]] && gpgline="none — upstream publishes no integrity data at all"
@@ -1121,7 +1190,7 @@ cmd_info() {
     elif [[ "$OPT_DISTRO" == "fedora" ]]; then
         gpgline="signed checksums, keys from fedoraproject.org/fedora.gpg"
     fi
-    printf 'gpg:      %s\n' "$gpgline"
+    printf '%sgpg:%s      %s\n' "$O_DIM" "$O_OFF" "$gpgline"
 }
 
 cmd_download() {
@@ -1157,52 +1226,39 @@ cmd_write() {
 
 # Interactive device picker; prints the chosen path on stdout.
 pick_device() {
-    local rows paths=() labels=() i
+    local rows paths=() entries=()
     rows=$(list_usb_devices)
     [[ -n "$rows" ]] || die "no removable/USB disks found — plug one in and retry"
     while IFS=$'\t' read -r path size model tran; do
         paths+=("$path")
-        labels+=("$path  $(human_size "$size")  $model ($tran)")
+        entries+=("$path|$(human_size "$size")  $model ($tran)")
     done <<<"$rows"
 
-    printf '\nSelect the target device:\n' >&2
-    local sel
-    select sel in "${labels[@]}"; do
-        [[ -n "$sel" ]] || { warn "invalid choice"; continue; }
-        i=$((REPLY - 1))
-        printf '%s\n' "${paths[$i]}"
-        return 0
-    done </dev/tty
-    die "no device selected"
+    menu_pick "Which device should it be written to?" "${entries[@]}"
+    printf '%s\n' "${paths[$MENU_INDEX]}"
 }
 
 # Interactive wizard: pick a source, pick a device, write.
 cmd_interactive() {
     [[ -t 0 ]] || die "no terminal available — use explicit commands (see --help)"
-    printf '%s v%s — write a Linux installer to a USB stick\n\n' "$SCRIPT_NAME" "$VERSION"
+    banner
 
-    local choices=() id
+    local entries=() id
     for id in "${DISTRO_IDS[@]}"; do
-        choices+=("$id — ${DISTRO_DESC[$id]}")
+        entries+=("$id|${DISTRO_DESC[$id]}")
     done
-    choices+=("local ISO file...")
+    entries+=("local ISO|use an image file you already have")
 
-    printf 'What do you want to write?\n'
-    local sel
-    select sel in "${choices[@]}"; do
-        [[ -n "$sel" ]] || { warn "invalid choice"; continue; }
-        break
-    done </dev/tty
-    [[ -n "${sel:-}" ]] || die "nothing selected"
-
-    if [[ "$sel" == "local ISO file..." ]]; then
-        read -e -r -p "Path to ISO: " OPT_ISO </dev/tty || die "aborted"
+    menu_pick "What do you want to write?" "${entries[@]}"
+    if (( MENU_INDEX == ${#DISTRO_IDS[@]} )); then
+        read -e -r -p "  ${C_ACCENT}›${C_OFF} path to image: " OPT_ISO </dev/tty \
+            || die "aborted"
         [[ -n "$OPT_ISO" ]] || die "no path entered"
         # Expand a leading ~/ only; '~user/...' is passed through untouched.
         # shellcheck disable=SC2088  # comparing against a literal tilde is the point
         [[ "$OPT_ISO" == "~/"* ]] && OPT_ISO="$HOME/${OPT_ISO#\~/}"
     else
-        OPT_DISTRO="${sel%% *}"
+        OPT_DISTRO="${DISTRO_IDS[$MENU_INDEX]}"
     fi
 
     # Ask both questions up front — the (possibly long) download starts only
