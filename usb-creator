@@ -18,7 +18,7 @@
 # License: MIT
 set -euo pipefail
 
-VERSION="0.11.2"
+VERSION="0.12.0"
 SCRIPT_NAME="$(basename "$0")"
 CACHE_DIR="${USB_CREATOR_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/usb-creator}"
 
@@ -1272,6 +1272,62 @@ cmd_download() {
     download_iso >/dev/null
 }
 
+# Self-update. Package-managed and git-checkout installs are handed to
+# their proper update channel; only a standalone release install is
+# replaced in place, after checksum verification of the download.
+cmd_update() {
+    local self dir
+    self=$(readlink -f "$0")
+    dir=$(dirname "$self")
+
+    if command -v pacman >/dev/null 2>&1 && pacman -Qo "$self" >/dev/null 2>&1; then
+        info "installed via pacman — update with: sudo pacman -Syu usb-creator"
+        return 0
+    fi
+    if command -v dpkg >/dev/null 2>&1 && dpkg -S "$self" >/dev/null 2>&1; then
+        info "installed via apt — update with: sudo apt update && sudo apt install usb-creator"
+        return 0
+    fi
+    if command -v rpm >/dev/null 2>&1 && rpm -qf "$self" >/dev/null 2>&1; then
+        info "installed via rpm — update with: sudo dnf upgrade usb-creator"
+        return 0
+    fi
+    if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        info "running from a git checkout — update with: git -C $dir pull"
+        return 0
+    fi
+
+    local base="https://github.com/Reventlow/usb-creator/releases/latest/download"
+    local newfile sums expected newver
+    mktempf newfile
+    mktempf sums
+    info "Fetching the latest release..."
+    fetch_to "$newfile" "$base/usb-creator" || die "cannot download the latest release"
+    fetch_to "$sums" "$base/SHA256SUMS" || die "cannot download the release checksums"
+    expected=$(checksum_for "$(cat "$sums")" "usb-creator")
+    [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || die "release checksum file is malformed"
+    verify_hash "$newfile" "$expected" sha256 \
+        || die "checksum mismatch on the downloaded release — not installing it"
+    bash -n "$newfile" 2>/dev/null || die "downloaded release does not parse — refusing"
+
+    newver=$(sed -n 's/^VERSION="\(.*\)"/\1/p' "$newfile")
+    [[ -n "$newver" ]] || die "cannot read the downloaded release's version"
+    if [[ "$newver" == "$VERSION" ]]; then
+        ok "Already up to date (v$VERSION)."
+        return 0
+    fi
+    if [[ "$(printf '%s\n%s\n' "$newver" "$VERSION" | sort -V | tail -1)" == "$VERSION" ]]; then
+        warn "latest release (v$newver) is older than this build (v$VERSION) — nothing to do"
+        return 0
+    fi
+
+    if ! install -m755 "$newfile" "$self" 2>/dev/null; then
+        info "elevated permissions needed to replace $self"
+        run_root install -m755 "$newfile" "$self" || die "could not replace $self"
+    fi
+    ok "Updated v$VERSION → v$newver ($self)"
+}
+
 cmd_write() {
     local iso
     if [[ -n "$OPT_DISTRO" && -n "$OPT_ISO" ]]; then
@@ -1359,6 +1415,7 @@ USAGE
     $SCRIPT_NAME info <distro>            show resolved URL and checksum
     $SCRIPT_NAME download <distro>        download + verify ISO into the cache
     $SCRIPT_NAME write [options]          write an image to a USB device
+    $SCRIPT_NAME update                   update this tool to the latest release
 
 WRITE OPTIONS
     --distro <name>     download (or reuse cached) ISO for <name>
@@ -1388,7 +1445,8 @@ parse_args() {
     COMMAND=""
     while (($#)); do
         case "$1" in
-            list|distros|write) COMMAND="$1" ;;
+            list|distros|write|update) COMMAND="$1" ;;
+            --update) COMMAND="update" ;;
             info|download)
                 COMMAND="$1"
                 if [[ -n "${2:-}" && "${2:0:1}" != "-" ]]; then
@@ -1425,6 +1483,7 @@ main() {
         info)     cmd_info ;;
         download) cmd_download ;;
         write)    cmd_write ;;
+        update)   cmd_update ;;
         "")       cmd_interactive ;;
     esac
 }

@@ -35,3 +35,7 @@
 - Write non-interactively for scripts (still refuses system disks):
 
 `usb-creator write --distro {{ubuntu-server}} --device {{/dev/sdb}} --yes`
+
+- Update the tool itself (delegates to the package manager where applicable):
+
+`usb-creator update`

@@ -120,6 +120,14 @@ case "$OUT" in
     *) FAIL=$((FAIL + 1)); echo "FAIL: options-without-command message: $OUT" ;;
 esac
 
+# In this repo (a git checkout), update must delegate to git, not self-replace.
+t "update exits 0 in a git checkout"  "$SCRIPT" update
+OUT=$("$SCRIPT" update 2>&1)
+case "$OUT" in
+    *"git"*) PASS=$((PASS + 1)) ;;
+    *) FAIL=$((FAIL + 1)); echo "FAIL: update should point at git in a checkout: $OUT" ;;
+esac
+
 echo "----------------------------------------"
 echo "passed: $PASS  failed: $FAIL"
 [[ $FAIL -eq 0 ]]

@@ -131,6 +131,7 @@ usb-creator distros                  # list supported distros
 usb-creator info <distro>            # show resolved URL + checksum
 usb-creator download <distro>        # download + verify into the cache
 usb-creator write [options]          # write an image
+usb-creator update                   # update the tool itself
 ```
 
 ### Write options

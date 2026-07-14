@@ -1,4 +1,4 @@
-.TH USB-CREATOR 1 "July 2026" "usb-creator 0.11.2" "User Commands"
+.TH USB-CREATOR 1 "July 2026" "usb-creator 0.12.0" "User Commands"
 .SH NAME
 usb-creator \- create verified bootable USB installers for Linux and BSD
 .SH SYNOPSIS
@@ -40,6 +40,13 @@ reused when their checksum still matches.
 .TP
 .B write
 Write an image to a USB device (see OPTIONS).
+.TP
+.B update
+Update the tool itself. Package-managed installs are pointed at their
+package manager, git checkouts at
+.BR git\-pull (1);
+a standalone release install is replaced in place after checksum
+verification of the downloaded release.
 .SH OPTIONS
 .TP
 .BI \-\-distro " name"
