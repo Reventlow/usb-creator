@@ -18,7 +18,7 @@
 # License: MIT
 set -euo pipefail
 
-VERSION="0.7.0"
+VERSION="0.8.0"
 SCRIPT_NAME="$(basename "$0")"
 CACHE_DIR="${USB_CREATOR_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/usb-creator}"
 
@@ -227,6 +227,10 @@ run_gpg() {
 #   kali         current archive key served from archive.kali.org
 #                (rotated 2025; older docs list the pre-rotation key)
 #   cachyos      wiki.cachyos.org/cachyos_basic/download/ (full fingerprint)
+#   kubuntu      same Ubuntu CD image signing key (cdimage.ubuntu.com)
+#   tails        tails.net/doc/about/openpgp_keys (signing key)
+#   qubes        per-major-release key from keys.qubes-os.org, itself signed
+#                by the Qubes Master Signing Key; new major = pin update
 # fedora is absent on purpose: its release keys rotate, so the pin set is
 # taken from the first-party bundle at fedoraproject.org/fedora.gpg per run.
 declare -A DISTRO_GPG_FPR=(
@@ -239,6 +243,9 @@ declare -A DISTRO_GPG_FPR=(
     [endeavouros]="8F43FC374CD4CEEA19CEE323E3D8752ACDF595A1"
     [kali]="827C8569F2518CC677FECA1AED65462EC8D5E4C5"
     [cachyos]="882DCFE48E2051D48E2562ABF3B607488DB35A47"
+    [kubuntu]="843938DF228D22F7B3742BC0D94AA3F0EFE21092"
+    [tails]="A490D0F4D311A4153E2BB7CADBB802B258ACD84F"
+    [qubes]="F3FA3F99D6281F7B3A3E5E871C3D9B627F3FADA4"
 )
 
 # Where to obtain each key. The transport does not need to be trusted for
@@ -255,6 +262,9 @@ declare -A DISTRO_GPG_KEYSRC=(
     [fedora]="https://fedoraproject.org/fedora.gpg"
     [kali]="https://archive.kali.org/archive-key.asc"
     [cachyos]="${GPG_KEYSERVER}882DCFE48E2051D48E2562ABF3B607488DB35A47"
+    [kubuntu]="${GPG_KEYSERVER}843938DF228D22F7B3742BC0D94AA3F0EFE21092"
+    [tails]="https://tails.net/tails-signing.key"
+    [qubes]="https://keys.qubes-os.org/keys/qubes-release-4.3-signing-key.asc"
 )
 
 GPG_DYNAMIC_FPRS=""   # pin set for distros without a static pin (fedora)
@@ -342,11 +352,13 @@ fetch_signed_sums() {
 # hardcodes version numbers.
 # ---------------------------------------------------------------------------
 
-DISTRO_IDS=(ubuntu debian fedora arch mint opensuse alpine popos endeavouros
-            bazzite cachyos kali omarchy zimaos freebsd openbsd netbootxyz)
+DISTRO_IDS=(ubuntu kubuntu debian fedora arch manjaro mint opensuse alpine
+            popos endeavouros bazzite cachyos garuda kali tails qubes
+            omarchy zimaos freebsd openbsd netbootxyz)
 
 declare -A DISTRO_DESC=(
     [ubuntu]="Ubuntu Desktop, latest LTS (amd64)"
+    [kubuntu]="Kubuntu Desktop, latest release (amd64)"
     [debian]="Debian stable netinst (amd64)"
     [fedora]="Fedora Workstation Live, latest release (x86_64)"
     [arch]="Arch Linux, latest monthly ISO (x86_64)"
@@ -357,7 +369,11 @@ declare -A DISTRO_DESC=(
     [endeavouros]="EndeavourOS, latest release (x86_64)"
     [bazzite]="Bazzite KDE desktop (gaming-focused Fedora), stable (amd64)"
     [cachyos]="CachyOS desktop (performance-optimized Arch), latest (x86_64)"
+    [garuda]="Garuda dr460nized (KDE gaming Arch), latest (x86_64)"
+    [manjaro]="Manjaro KDE, latest release (x86_64)"
     [kali]="Kali Linux Live, latest release (amd64)"
+    [tails]="Tails (privacy live system), latest stable (amd64)"
+    [qubes]="Qubes OS (security by compartmentalization), latest (x86_64)"
     [omarchy]="Omarchy — opinionated Arch/Hyprland by DHH (amd64)"
     [zimaos]="ZimaOS installer (IceWhale home-server OS) (x86_64)"
     [freebsd]="FreeBSD memstick installer, latest RELEASE (amd64)"
@@ -415,6 +431,31 @@ resolve_ubuntu() {
     [[ -n "$RESOLVED_FILE" ]] || die "no desktop ISO found in Ubuntu $ver checksums"
     RESOLVED_URL="$base/$ver/$RESOLVED_FILE"
     RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
+}
+
+resolve_kubuntu() {
+    # Same cdimage infrastructure and CD-image signing key as Ubuntu. The
+    # newest version directory can predate its release (no release/ files
+    # yet), so walk versions newest-first until one has signed checksums.
+    local base="https://cdimage.ubuntu.com/kubuntu/releases"
+    local index ver sums
+    index=$(fetch "$base/") || die "cannot reach $base"
+    # shellcheck disable=SC2013  # version tokens contain no whitespace
+    for ver in $(grep -oE 'href="[0-9]+\.[0-9]+(\.[0-9]+)?/"' <<<"$index" \
+                 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | sort -urV); do
+        # Cheap existence probe before the verifying fetch, to keep the
+        # walk quiet across not-yet-released directories.
+        fetch "$base/$ver/release/SHA256SUMS" >/dev/null 2>&1 || continue
+        sums=$(fetch_signed_sums kubuntu "$base/$ver/release/SHA256SUMS" \
+               "$base/$ver/release/SHA256SUMS.gpg") || continue
+        RESOLVED_FILE=$(awk '{ fn=$2; sub(/^\*/,"",fn) }
+            fn ~ /^kubuntu-.*-desktop-amd64\.iso$/ { print fn; exit }' <<<"$sums")
+        [[ -n "$RESOLVED_FILE" ]] || continue
+        RESOLVED_URL="$base/$ver/release/$RESOLVED_FILE"
+        RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
+        return 0
+    done
+    die "no released Kubuntu desktop ISO found"
 }
 
 resolve_debian() {
@@ -489,6 +530,24 @@ resolve_arch() {
     RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
     # Arch signs the ISO itself, not the checksum file.
     RESOLVED_ISO_SIG_URL="$RESOLVED_URL.sig"
+}
+
+resolve_manjaro() {
+    # manjaro.org (first-party) embeds the current direct ISO links; the
+    # checksum sits alongside the image on download.manjaro.org. A GPG
+    # .sig is published too, but Manjaro's key documentation (their
+    # GitLab) was not reliably reachable to pin a fingerprint against —
+    # checksum + first-party TLS until that can be done properly.
+    local page sums
+    page=$(fetch "https://manjaro.org/products/download/x86") \
+        || die "cannot reach manjaro.org"
+    RESOLVED_URL=$(grep -oE 'https://download\.manjaro\.org/kde/[^"<> ]+\.iso' \
+        <<<"$page" | head -1)
+    [[ -n "$RESOLVED_URL" ]] || die "no KDE ISO link found on manjaro.org"
+    RESOLVED_FILE="${RESOLVED_URL##*/}"
+    sums=$(fetch "$RESOLVED_URL.sha256") || die "cannot fetch Manjaro checksum"
+    RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
+    [[ -n "$RESOLVED_HASH" ]] || RESOLVED_HASH=$(awk '{print tolower($1); exit}' <<<"$sums")
 }
 
 resolve_mint() {
@@ -608,6 +667,56 @@ resolve_cachyos() {
     RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
     RESOLVED_URL="https://cdn77.cachyos.org/ISO/desktop/$ver/$RESOLVED_FILE"
     RESOLVED_ISO_SIG_URL="$base/$ver/$RESOLVED_FILE.sig"
+}
+
+resolve_garuda() {
+    # iso.builds.garudalinux.org is project infrastructure. latest.iso is
+    # a stable alias; its .sha256 names the real versioned filename, which
+    # becomes the cache name.
+    local base="https://iso.builds.garudalinux.org/iso/latest/garuda/dr460nized"
+    local sums
+    sums=$(fetch "$base/latest.iso.sha256") || die "cannot fetch Garuda checksum"
+    RESOLVED_HASH=$(awk '{print tolower($1); exit}' <<<"$sums")
+    RESOLVED_FILE=$(awk '{fn = $2; sub(/^\*/, "", fn); print fn; exit}' <<<"$sums")
+    [[ -n "$RESOLVED_FILE" ]] || die "Garuda checksum file names no ISO"
+    RESOLVED_URL="$base/latest.iso"
+}
+
+resolve_tails() {
+    # tails.net publishes machine-readable release data (used by Tails'
+    # own upgrader). The USB image is raw (not ISO9660) and carries a
+    # detached OpenPGP signature by the Tails signing key.
+    local json
+    json=$(fetch "https://tails.net/install/v2/Tails/amd64/stable/latest.json") \
+        || die "cannot fetch the Tails release data"
+    read -r RESOLVED_URL RESOLVED_HASH < <(jq -r '
+        [.installations[0]."installation-paths"[]."target-files"[]
+         | select(.url | endswith(".img"))][0]
+        | ((.url // "") + " " + (.sha256 // ""))' <<<"$json") || true
+    [[ -n "${RESOLVED_URL:-}" ]] || die "no USB image in the Tails release data"
+    RESOLVED_FILE="${RESOLVED_URL##*/}"
+    RESOLVED_HASH="${RESOLVED_HASH,,}"
+    RESOLVED_RAW=1
+    RESOLVED_ISO_SIG_URL="$RESOLVED_URL.sig"
+}
+
+resolve_qubes() {
+    # ftp.qubes-os.org is project infrastructure. The ISO carries a
+    # detached signature by the per-major-release signing key (itself
+    # signed by the Qubes Master Signing Key); a new major release needs
+    # a deliberate pin + key URL update here, same policy as Kali.
+    local base="https://ftp.qubes-os.org/iso"
+    local index digests
+    index=$(fetch "$base/") || die "cannot reach $base"
+    RESOLVED_FILE=$(grep -oE 'href="Qubes-R[0-9.]+-x86_64\.iso"' <<<"$index" \
+        | grep -oE 'Qubes-R[0-9.]+-x86_64\.iso' | sort -uV | tail -1)
+    [[ -n "$RESOLVED_FILE" ]] || die "no Qubes release ISO found"
+    digests=$(fetch "$base/$RESOLVED_FILE.DIGESTS") || die "cannot fetch Qubes DIGESTS"
+    # DIGESTS mixes md5/sha1/sha256/sha512 lines; keep only sha256-sized.
+    RESOLVED_HASH=$(checksum_for "$(grep -E '^[0-9a-f]{64}[[:space:]]' <<<"$digests")" \
+        "$RESOLVED_FILE")
+    RESOLVED_URL="$base/$RESOLVED_FILE"
+    RESOLVED_ISO_SIG_URL="$RESOLVED_URL.asc"
 }
 
 resolve_kali() {

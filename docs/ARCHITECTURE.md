@@ -30,10 +30,10 @@ ever serve bytes, never the expectation those bytes are checked against.
 
 | class | distros | anchor |
 |---|---|---|
-| signed checksums | ubuntu, debian, mint, opensuse, kali | detached sig over the sums file, pinned key fingerprint |
+| signed checksums | ubuntu, kubuntu, debian, mint, opensuse, kali | detached sig over the sums file, pinned key fingerprint |
 | signed checksums, rotating keys | fedora | clearsigned CHECKSUM, keys pinned per-run from first-party `fedora.gpg`, cross-checked against releases.json |
-| signed ISO | arch, alpine, endeavouros, cachyos | detached sig over the image, pinned key |
-| checksum only | popos, bazzite, netbootxyz | sha256 from first-party host, TLS |
+| signed ISO | arch, alpine, endeavouros, cachyos, tails, qubes | detached sig over the image, pinned key |
+| checksum only | popos, bazzite, garuda, manjaro, zimaos, freebsd, openbsd, netbootxyz | checksum from first-party host, TLS |
 | none (upstream publishes nothing) | omarchy | TLS only — warned loudly at every step |
 
 GPG keys live in a private keyring under the cache dir; the user's own

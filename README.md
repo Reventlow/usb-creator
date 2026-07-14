@@ -23,9 +23,10 @@ with the guard rails you actually want:
   single exception is Omarchy, which publishes no integrity data — see the
   footnote in the distro table.
 - **GPG signatures are verified with pinned keys** wherever the distro
-  publishes them: signed checksum files for Ubuntu, Debian, Mint, Fedora,
-  openSUSE and Kali; detached signatures over the ISO itself for Arch, Alpine,
-  EndeavourOS and CachyOS. Keys live in a private keyring under the cache dir
+  publishes them: signed checksum files for Ubuntu, Kubuntu, Debian, Mint,
+  Fedora, openSUSE and Kali; detached signatures over the image itself for
+  Arch, Alpine, EndeavourOS, CachyOS, Tails and Qubes OS. Keys live in a
+  private keyring under the cache dir
   (your own GnuPG setup is never touched), and a signature from any key
   other than the pinned fingerprint fails the download. Pop!_OS, Bazzite
   and netboot.xyz publish no signatures — those remain checksum + TLS only —
@@ -147,6 +148,7 @@ usb-creator write [options]          # write an image
 | id | image |
 |---|---|
 | `ubuntu` | Ubuntu Desktop, latest LTS (amd64) |
+| `kubuntu` | Kubuntu Desktop, latest release (amd64) |
 | `debian` | Debian stable netinst (amd64) |
 | `fedora` | Fedora Workstation Live, latest (x86_64) |
 | `arch` | Arch Linux, latest monthly ISO (x86_64) |
@@ -157,6 +159,10 @@ usb-creator write [options]          # write an image
 | `endeavouros` | EndeavourOS, latest release (x86_64) |
 | `bazzite` | Bazzite KDE desktop (gaming-focused Fedora), stable (amd64) |
 | `cachyos` | CachyOS desktop (performance-optimized Arch), latest (x86_64) |
+| `garuda` | Garuda dr460nized (KDE gaming Arch), latest (x86_64) |
+| `manjaro` | Manjaro KDE, latest release (x86_64) |
+| `tails` | Tails (privacy live system), latest stable (amd64) |
+| `qubes` | Qubes OS (security by compartmentalization), latest (x86_64) |
 | `kali` | Kali Linux Live, latest release (amd64) |
 | `omarchy` | Omarchy — opinionated Arch/Hyprland by DHH (amd64). **No upstream checksums or signatures — TLS-only download** † |
 | `zimaos` | ZimaOS installer (IceWhale home-server OS) (x86_64) |
