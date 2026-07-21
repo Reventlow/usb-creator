@@ -18,7 +18,7 @@
 # License: MIT
 set -euo pipefail
 
-VERSION="0.13.0"
+VERSION="1.0.0"
 SCRIPT_NAME="$(basename "$0")"
 CACHE_DIR="${USB_CREATOR_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/usb-creator}"
 
