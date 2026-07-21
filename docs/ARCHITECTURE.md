@@ -33,8 +33,8 @@ ever serve bytes, never the expectation those bytes are checked against.
 | signed checksums | ubuntu(+server), kubuntu, debian, mint, opensuse, kali, almalinux | detached sig over the sums file, pinned key fingerprint |
 | signed checksums, rotating keys | fedora, fedora-server | clearsigned CHECKSUM, keys pinned per-run from first-party `fedora.gpg`, cross-checked against releases.json |
 | signed ISO | arch, alpine, endeavouros, cachyos, tails, qubes | detached sig over the image, pinned key |
-| checksum only | popos, bazzite, garuda, manjaro, zimaos, freebsd, openbsd, netbootxyz | checksum from first-party host, TLS |
-| none (upstream publishes nothing) | omarchy | TLS only — warned loudly at every step |
+| checksum only | popos, bazzite, bluefin, garuda, manjaro, zimaos, freebsd, openbsd, netbootxyz | checksum from first-party host, TLS |
+| none (upstream publishes nothing usable) | omarchy, nyarch | TLS only — warned loudly at every step |
 
 GPG keys live in a private keyring under the cache dir; the user's own
 GnuPG setup is never read or written. A signature from any key other than

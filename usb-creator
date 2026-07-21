@@ -18,7 +18,7 @@
 # License: MIT
 set -euo pipefail
 
-VERSION="0.12.0"
+VERSION="0.13.0"
 SCRIPT_NAME="$(basename "$0")"
 CACHE_DIR="${USB_CREATOR_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/usb-creator}"
 
@@ -423,9 +423,9 @@ fetch_signed_sums() {
 # ---------------------------------------------------------------------------
 
 DISTRO_IDS=(ubuntu kubuntu fedora arch manjaro mint opensuse alpine
-            popos endeavouros bazzite cachyos garuda kali tails qubes
-            omarchy ubuntu-server debian fedora-server almalinux zimaos
-            freebsd openbsd netbootxyz)
+            popos endeavouros bazzite bluefin cachyos garuda kali tails
+            qubes omarchy nyarch ubuntu-server debian fedora-server
+            almalinux zimaos freebsd openbsd netbootxyz)
 
 # Wizard grouping: desktop, server, or both (shown in either list).
 declare -A DISTRO_CATEGORY=(
@@ -433,7 +433,7 @@ declare -A DISTRO_CATEGORY=(
     [manjaro]=desktop [mint]=desktop [opensuse]=desktop [alpine]=desktop
     [popos]=desktop [endeavouros]=desktop [bazzite]=desktop
     [cachyos]=desktop [garuda]=desktop [kali]=desktop [tails]=desktop
-    [qubes]=desktop [omarchy]=desktop
+    [qubes]=desktop [omarchy]=desktop [bluefin]=desktop [nyarch]=desktop
     [ubuntu-server]=server [debian]=server [fedora-server]=server
     [almalinux]=server [zimaos]=server [freebsd]=server [openbsd]=server
     [netbootxyz]=both
@@ -454,6 +454,8 @@ declare -A DISTRO_DESC=(
     [popos]="Pop!_OS latest LTS, Intel/AMD graphics image (amd64)"
     [endeavouros]="EndeavourOS, latest release (x86_64)"
     [bazzite]="Bazzite KDE desktop (gaming-focused Fedora), stable (amd64)"
+    [bluefin]="Bluefin (developer-focused Fedora Atomic), stable (x86_64)"
+    [nyarch]="Nyarch Linux GNOME (Arch, for weebs), latest (x86_64)"
     [cachyos]="CachyOS desktop (performance-optimized Arch), latest (x86_64)"
     [garuda]="Garuda dr460nized (KDE gaming Arch), latest (x86_64)"
     [manjaro]="Manjaro KDE, latest release (x86_64)"
@@ -774,6 +776,31 @@ resolve_endeavouros() {
         fi
     done
     die "no EndeavourOS mirror currently serves $RESOLVED_FILE"
+}
+
+resolve_bluefin() {
+    # Universal Blue sibling of Bazzite: stable alias plus an adjacent
+    # GNU-format checksum on first-party infrastructure.
+    local base="https://download.projectbluefin.io" sums
+    RESOLVED_FILE="bluefin-stable-x86_64.iso"
+    RESOLVED_URL="$base/$RESOLVED_FILE"
+    sums=$(fetch "$base/$RESOLVED_FILE-CHECKSUM") || die "cannot fetch Bluefin checksum"
+    RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
+}
+
+resolve_nyarch() {
+    # Nyarch distributes via SourceForge and publishes no usable integrity
+    # data (only SourceForge's own MD5, which is not collision-resistant),
+    # so this joins the TLS-only "none" class — and here TLS terminates at
+    # SourceForge's third-party mirror pool, the weakest trust story in
+    # this registry. The tool says so loudly at every step.
+    local json
+    json=$(fetch "https://sourceforge.net/projects/nyarchlinux/best_release.json") \
+        || die "cannot reach the Nyarch release API"
+    RESOLVED_FILE=$(jq -r '.release.filename // empty' <<<"$json" | sed 's|^/||')
+    [[ -n "$RESOLVED_FILE" ]] || die "no release file in the Nyarch release data"
+    RESOLVED_URL="https://downloads.sourceforge.net/project/nyarchlinux/$RESOLVED_FILE"
+    RESOLVED_ALGO="none"
 }
 
 resolve_bazzite() {

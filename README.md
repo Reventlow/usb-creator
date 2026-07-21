@@ -164,6 +164,8 @@ usb-creator update                   # update the tool itself
 | `popos` | Pop!_OS latest LTS, Intel/AMD graphics image (amd64) |
 | `endeavouros` | EndeavourOS, latest release (x86_64) |
 | `bazzite` | Bazzite KDE desktop (gaming-focused Fedora), stable (amd64) |
+| `bluefin` | Bluefin (developer-focused Fedora Atomic), stable (x86_64) |
+| `nyarch` | Nyarch Linux GNOME (Arch, for weebs), latest (x86_64) † |
 | `cachyos` | CachyOS desktop (performance-optimized Arch), latest (x86_64) |
 | `garuda` | Garuda dr460nized (KDE gaming Arch), latest (x86_64) |
 | `manjaro` | Manjaro KDE, latest release (x86_64) |
@@ -176,9 +178,11 @@ usb-creator update                   # update the tool itself
 | `openbsd` | OpenBSD USB installer, latest release (amd64) |
 | `netbootxyz` | netboot.xyz network installer (~2 MB, boots many distros) |
 
-† Omarchy publishes neither checksums nor signatures, so its download can
-only be trusted as far as TLS to iso.omarchy.org — the tool says so loudly
-when you use it. The post-write read-back verification still applies.
+† These upstreams publish no usable integrity data (Omarchy: nothing;
+Nyarch: only SourceForge's MD5, which is not collision-resistant), so
+their downloads can only be trusted as far as TLS to the serving host —
+the tool says so loudly when you use them. The post-write read-back
+verification still applies.
 
 Anything else: pass your own image with `--iso file.iso`.
 

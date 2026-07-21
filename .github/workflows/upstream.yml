@@ -25,8 +25,8 @@ jobs:
           : > /tmp/report.txt
           for d in ubuntu ubuntu-server kubuntu debian fedora fedora-server \
                    almalinux arch manjaro mint opensuse alpine popos \
-                   endeavouros bazzite cachyos garuda kali tails qubes \
-                   omarchy zimaos freebsd openbsd netbootxyz; do
+                   endeavouros bazzite bluefin cachyos garuda kali tails \
+                   qubes omarchy nyarch zimaos freebsd openbsd netbootxyz; do
             if ./usb-creator info "$d" >/dev/null 2>&1; then
               echo "PASS $d" | tee -a /tmp/report.txt
             else
