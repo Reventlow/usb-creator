@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.0 — 2026-09-07
+
+### Omarchy resolver hardening
+- The resolver now version-sorts every ISO link found on omarchy.org and
+  takes the newest, instead of the first match on the page.
+- New version floor: Omarchy releases below 4.0.0 are refused with a
+  clear error, so a homepage rollback or stale page can never silently
+  hand out a pre-4 ISO.
+- New reusable `version_at_least()` helper (sort -V semantics, so 4.10
+  ranks above 4.9) with unit tests.
+
+### Fixed
+- EndeavourOS: the first-party checksum page moved from `/latest-release/`
+  to `/download/`, breaking the resolver (caught by the 2026-09-07 upstream
+  watch). The new location is primary, the old one a fallback. The site
+  root is no longer a fallback — it lists the ISO filename but no
+  checksum, which turned a moved page into a misleading error.
+
 ## 1.0.0 — 2026-07-21
 
 First stable release. The 1.0 gate was empirical, not ceremonial: an

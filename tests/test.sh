@@ -58,6 +58,13 @@ eq "checksum_for CRLF last line"  "$(checksum_for "$SUMS_CRLF" delta.iso)" "dddd
 eq "checksum_for missing file"    "$(checksum_for "$SUMS_GNU" nope.iso)"  ""
 eq "checksum_for uppercases hash" "$(checksum_for "EEEE5555  up.iso" up.iso)" "eeee5555"
 
+t "version_at_least equal"          version_at_least 4.0.0 4.0.0
+t "version_at_least newer patch"    version_at_least 4.0.1 4.0.0
+t "version_at_least newer major"    version_at_least 5.0.0 4.0.0
+t "version_at_least 4.10 over 4.9"  version_at_least 4.10.0 4.9.0
+f "version_at_least older major"    version_at_least 3.9.9 4.0.0
+f "version_at_least older patch"    version_at_least 4.0.0 4.0.1
+
 for mp in / /boot /boot/efi /efi /home /home/gorm /usr/lib /var/log \
           /etc /opt/x /srv /root /tmp/y /nix "[SWAP]"; do
     t "is_critical_mount $mp" is_critical_mount "$mp"
