@@ -101,7 +101,7 @@ environment.systemPackages = [ inputs.usb-creator.packages.${pkgs.stdenv.hostPla
 
 `sudo` is intentionally not bundled: the tool calls the host's own setuid
 `sudo` for the privileged steps, which `security.sudo` provides on NixOS.
-Pin a release by tag (`github:Reventlow/usb-creator/v1.1.0`) for
+Pin a release by tag (`github:Reventlow/usb-creator/v1.2.0`) for
 reproducible builds; the package version is read from the script itself,
 so it always matches.
 

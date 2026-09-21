@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.2.0 — 2026-09-21
+
+### NixOS support
+- The repository is now a Nix flake. `nix run github:Reventlow/usb-creator`
+  works with nothing installed; `nix profile install` and declarative
+  `environment.systemPackages` use are documented in the README.
+- The package wraps every runtime dependency into the binary's `PATH` —
+  including `gawk`, `gnugrep` and `gnused`, which FHS distros take for
+  granted but Nix ships separately. Verified by running a live resolver in
+  an empty environment. `sudo` is deliberately not bundled: privileged steps
+  go through the host's setuid binary.
+- The package version is parsed from the script's own `VERSION=` line, so
+  the release routine gains no extra place to bump.
+- The requirements list now names `awk`, `grep` and `sed` explicitly.
+
 ## 1.1.0 — 2026-09-07
 
 ### Omarchy resolver hardening
