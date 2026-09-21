@@ -73,6 +73,38 @@ printf '[usb-creator]\nServer = https://usb-creator.blacklog.net/arch\n' | sudo 
 sudo pacman -Sy usb-creator
 ```
 
+**NixOS / Nix (flake):**
+
+The repository is a flake. It packages the script with every runtime
+dependency pinned into its `PATH`, so it works on a host where none of
+them are otherwise installed. Try it without installing anything:
+
+```bash
+nix run github:Reventlow/usb-creator -- distros
+```
+
+Install for your user:
+
+```bash
+nix profile install github:Reventlow/usb-creator
+```
+
+Or declare it in a NixOS or Home Manager configuration:
+
+```nix
+# flake.nix
+inputs.usb-creator.url = "github:Reventlow/usb-creator";
+
+# configuration.nix (or home.nix), with `inputs` passed via specialArgs
+environment.systemPackages = [ inputs.usb-creator.packages.${pkgs.stdenv.hostPlatform.system}.default ];
+```
+
+`sudo` is intentionally not bundled: the tool calls the host's own setuid
+`sudo` for the privileged steps, which `security.sudo` provides on NixOS.
+Pin a release by tag (`github:Reventlow/usb-creator/v1.1.0`) for
+reproducible builds; the package version is read from the script itself,
+so it always matches.
+
 ### From source or a release
 
 ```bash
@@ -106,7 +138,9 @@ sha256sum -c SHA256SUMS && install -Dm755 usb-creator ~/.local/bin/usb-creator
 
 - `bash` >= 4
 - `coreutils` (dd, sha256sum, sha512sum, numfmt, ...)
-- `util-linux` (lsblk 2.37+, findmnt)
+- `util-linux` (lsblk 2.37+, findmnt, eject, column)
+- `awk`, `grep`, `sed` — present on every FHS distro; listed because
+  Nix ships them as separate packages (`gawk`, `gnugrep`, `gnused`)
 - `curl`
 - `jq`
 - `sudo` — for the privileged steps (dd, umount, eject) when not run as root
@@ -120,6 +154,7 @@ sudo pacman -S --needed coreutils util-linux curl jq gnupg
 sudo apt install coreutils util-linux curl jq gnupg
 # Fedora
 sudo dnf install coreutils util-linux curl jq gnupg2
+# NixOS: nothing to install — the flake bundles all of the above
 ```
 
 ## Usage
