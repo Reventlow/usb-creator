@@ -18,7 +18,7 @@
 # License: MIT
 set -euo pipefail
 
-VERSION="1.2.0"
+VERSION="1.2.1"
 SCRIPT_NAME="$(basename "$0")"
 CACHE_DIR="${USB_CREATOR_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/usb-creator}"
 
@@ -316,28 +316,78 @@ declare -A DISTRO_GPG_FPR=(
     [almalinux]="EE6DB7B98F5BF5EDD9DA0DE5DEE5C11CC2A1E572"
 )
 
-# Where to obtain each key. The transport does not need to be trusted for
-# the pinned distros — verification is against the fingerprint, not the URL.
-GPG_KEYSERVER="https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x"
+# Where to obtain each key: a whitespace-separated list of URLs, tried in
+# order. The transport does not need to be trusted for the pinned distros —
+# verification is against the fingerprint, not the URL — so any source that
+# yields the pinned key is acceptable, and several are listed so that one
+# unreachable host does not take a resolver down (keyserver.ubuntu.com timed
+# out for several minutes on 2026-09-21 and failed three resolvers at once).
+#
+# Public keyservers that still serve complete keys. keys.openpgp.org is
+# deliberately absent: it strips user IDs it has not verified by e-mail, and
+# GnuPG refuses to import a key with no user ID at all.
+GPG_KEYSERVERS=(
+    "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x"
+    "https://pgpkeys.eu/pks/lookup?op=get&search=0x"
+)
+
+# keyserver_urls <fingerprint> — the fingerprint's lookup URL on every
+# keyserver, space-separated, in preference order.
+keyserver_urls() {
+    local ks out=""
+    for ks in "${GPG_KEYSERVERS[@]}"; do out+="${ks}$1 "; done
+    printf '%s' "${out% }"
+}
+
+# Ubuntu's CD image signing key, served first-party from the ubuntu-keyring
+# package source on Launchpad — independent of the HKP keyserver.
+UBUNTU_CDIMAGE_KEYRING="https://git.launchpad.net/ubuntu/+source/ubuntu-keyring/plain/keyrings/ubuntu-cdimage-keyring.gpg"
+
 declare -A DISTRO_GPG_KEYSRC=(
-    [ubuntu]="${GPG_KEYSERVER}843938DF228D22F7B3742BC0D94AA3F0EFE21092"
-    [debian]="${GPG_KEYSERVER}DF9B9C49EAA9298432589D76DA87E80D6294BE9B"
-    [mint]="${GPG_KEYSERVER}27DEB15644C6B3CF3BD7D291300F846BA25BAE09"
-    [arch]="${GPG_KEYSERVER}3E80CA1A8B89F69CBA57D98A76A5EF9054449A5C"
-    [opensuse]="${GPG_KEYSERVER}AD485664E901B867051AB15F35A2F86E29B700A4"
+    [ubuntu]="$UBUNTU_CDIMAGE_KEYRING $(keyserver_urls 843938DF228D22F7B3742BC0D94AA3F0EFE21092)"
+    [debian]="$(keyserver_urls DF9B9C49EAA9298432589D76DA87E80D6294BE9B)"
+    [mint]="$(keyserver_urls 27DEB15644C6B3CF3BD7D291300F846BA25BAE09)"
+    [arch]="$(keyserver_urls 3E80CA1A8B89F69CBA57D98A76A5EF9054449A5C)"
+    [opensuse]="$(keyserver_urls AD485664E901B867051AB15F35A2F86E29B700A4)"
     [alpine]="https://alpinelinux.org/keys/ncopa.asc"
     [endeavouros]="https://raw.githubusercontent.com/endeavouros-team/keyring/master/endeavouros.gpg"
     [fedora]="https://fedoraproject.org/fedora.gpg"
     [kali]="https://archive.kali.org/archive-key.asc"
-    [cachyos]="${GPG_KEYSERVER}882DCFE48E2051D48E2562ABF3B607488DB35A47"
-    [kubuntu]="${GPG_KEYSERVER}843938DF228D22F7B3742BC0D94AA3F0EFE21092"
+    [cachyos]="$(keyserver_urls 882DCFE48E2051D48E2562ABF3B607488DB35A47)"
+    [kubuntu]="$UBUNTU_CDIMAGE_KEYRING $(keyserver_urls 843938DF228D22F7B3742BC0D94AA3F0EFE21092)"
     [tails]="https://tails.net/tails-signing.key"
     [qubes]="https://keys.qubes-os.org/keys/qubes-release-4.3-signing-key.asc"
-    [ubuntu-server]="${GPG_KEYSERVER}843938DF228D22F7B3742BC0D94AA3F0EFE21092"
+    [ubuntu-server]="$UBUNTU_CDIMAGE_KEYRING $(keyserver_urls 843938DF228D22F7B3742BC0D94AA3F0EFE21092)"
     [almalinux]="https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-10"
 )
 
 GPG_DYNAMIC_FPRS=""   # pin set for distros without a static pin (fedora)
+
+# fetch_key_from_sources <file> <distro> <pins> — try each key source in
+# turn until one downloads and, for a pinned distro, actually contains every
+# pinned fingerprint. A source that serves the wrong key (or a stripped one)
+# is skipped like an unreachable one, so a fallback cannot be satisfied by
+# junk. Returns non-zero only when every source has been exhausted.
+fetch_key_from_sources() {
+    local file="$1" id="$2" pins="$3" url fpr have ok
+    for url in ${DISTRO_GPG_KEYSRC[$id]}; do
+        if ! fetch_to "$file" "$url"; then
+            warn "$id key source unreachable, trying next: ${url%%\?*}"
+            continue
+        fi
+        ok=1
+        if [[ -n "$pins" ]]; then
+            have=$(run_gpg --show-keys --with-colons "$file" 2>/dev/null \
+                | awk -F: '$1 == "fpr" {print $10}')
+            for fpr in $pins; do
+                grep -qx "$fpr" <<<"$have" || { ok=0; break; }
+            done
+            (( ok )) || warn "$id key source did not yield the pinned key, trying next: ${url%%\?*}"
+        fi
+        (( ok )) && return 0
+    done
+    return 1
+}
 
 # Make sure the distro's signing key(s) are present in the private keyring.
 gpg_ensure_keys() {
@@ -350,8 +400,8 @@ gpg_ensure_keys() {
         (( absent )) || return 0
     fi
     mktempf keyfile
-    fetch_to "$keyfile" "${DISTRO_GPG_KEYSRC[$id]}" \
-        || die "cannot download the $id signing key"
+    fetch_key_from_sources "$keyfile" "$id" "$pins" \
+        || die "cannot download the $id signing key from any source"
     if [[ -z "$pins" ]]; then
         # No static pin (rotating release keys): pin exactly the set of
         # fingerprints the first-party key bundle contains right now.

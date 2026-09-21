@@ -65,6 +65,18 @@ t "version_at_least 4.10 over 4.9"  version_at_least 4.10.0 4.9.0
 f "version_at_least older major"    version_at_least 3.9.9 4.0.0
 f "version_at_least older patch"    version_at_least 4.0.0 4.0.1
 
+# keyserver_urls: one lookup URL per configured keyserver, in order
+KS_OUT=$(keyserver_urls DEADBEEF)
+eq "keyserver_urls count"   "$(wc -w <<<"$KS_OUT")" "${#GPG_KEYSERVERS[@]}"
+eq "keyserver_urls first"   "$(awk '{print $1}' <<<"$KS_OUT")" "${GPG_KEYSERVERS[0]}DEADBEEF"
+case "${DISTRO_GPG_KEYSRC[ubuntu]}" in
+    "$UBUNTU_CDIMAGE_KEYRING "*) PASS=$((PASS + 1)) ;;
+    *) FAIL=$((FAIL + 1)); echo "FAIL: ubuntu key sources should start with the first-party keyring" ;;
+esac
+for d in ubuntu kubuntu ubuntu-server debian arch; do
+    t "$d has more than one key source" test "$(wc -w <<<"${DISTRO_GPG_KEYSRC[$d]}")" -gt 1
+done
+
 for mp in / /boot /boot/efi /efi /home /home/gorm /usr/lib /var/log \
           /etc /opt/x /srv /root /tmp/y /nix "[SWAP]"; do
     t "is_critical_mount $mp" is_critical_mount "$mp"

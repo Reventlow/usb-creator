@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.2.1 — 2026-09-21
+
+### Fixed
+- Signing keys are now fetched from a list of sources with fallback, instead
+  of a single keyserver. `keyserver.ubuntu.com` timed out for several minutes
+  during the 2026-09-21 upstream watch and took the three Ubuntu-family
+  resolvers down with it; eight distros depended on that one host.
+- Ubuntu, Kubuntu and Ubuntu Server now take the CD image signing key
+  first-party, from the `ubuntu-keyring` package source on Launchpad, with
+  the keyservers as fallback only.
+- `pgpkeys.eu` added as a second keyserver for the remaining keyserver-sourced
+  keys. `keys.openpgp.org` was evaluated and rejected: it strips unverified
+  user IDs, and GnuPG refuses to import a key with none.
+- A fallback source that serves the wrong key — or a stripped one — is
+  skipped exactly like an unreachable one, and never imported. Pinned
+  fingerprints are checked against the downloaded file before import.
+
 ## 1.2.0 — 2026-09-21
 
 ### NixOS support
