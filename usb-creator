@@ -1260,6 +1260,15 @@ write_iso() {
     (( dev_size >= iso_size )) \
         || die "device is too small: $(human_size "$dev_size") < $(human_size "$iso_size")"
 
+    # Settle root access before any of the deliberate prompts below. Two
+    # reasons: the password prompt must not collide with (or invisibly stall
+    # behind) the progress display, and it must not sit between the typed
+    # confirmation and the write it confirms. Authority (sudo) and targeting
+    # (the typed device name) are separate questions — and sudo is often no
+    # prompt at all (cached, passwordless, or already root) — so the typed
+    # name is deliberately the last thing the user does before dd starts.
+    run_root true || die "cannot gain root privileges"
+
     if (( ! RESOLVED_RAW )) && ! looks_like_iso "$iso"; then
         warn "'$(basename "$iso")' does not look like an ISO9660 image"
         if (( ! OPT_YES )); then
@@ -1270,10 +1279,6 @@ write_iso() {
     fi
 
     confirm_write "$dev" "$iso"
-
-    # Take the sudo password prompt up front so it does not collide with
-    # (or invisibly stall behind) the progress display.
-    run_root true || die "cannot gain root privileges"
 
     info "Writing $(human_size "$iso_size") to $dev (this can take a while)..."
     run_root dd if="$iso" of="$dev" bs=4M conv=fsync oflag=direct status=progress \

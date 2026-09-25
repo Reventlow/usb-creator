@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- The sudo password is now taken before the write confirmation, not after
+  it. Authority and targeting are separate questions, and sudo is often no
+  prompt at all (cached, passwordless, root), so it no longer interrupts
+  between typing the device name and the write that confirmation authorises.
+  Typing the device name is now the last act before `dd` starts.
+
 ## 1.2.1 — 2026-09-21
 
 ### Fixed
