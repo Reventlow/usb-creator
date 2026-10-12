@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.2.2 — 2026-10-12
+
+### Fixed
+- OpenBSD: the mirror now publishes the next version directory ahead of the
+  release (`8.0/` held only `packages/`, no `amd64/` tree), so the resolver
+  picked it and 404'd on `amd64/SHA256`. Version directories are now walked
+  newest-first until one actually carries the installer and its checksum —
+  the same pattern the FreeBSD resolver already used. Caught by the
+  2026-10-05 upstream watch; fix drafted by the resolver routine (#2).
 
 ### Changed
 - The sudo password is now taken before the write confirmation, not after
