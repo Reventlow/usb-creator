@@ -956,18 +956,20 @@ resolve_kali() {
 OMARCHY_MIN_VERSION="4.0.0"
 
 resolve_omarchy() {
-    # Omarchy publishes neither checksums nor signatures — only the ISO
-    # itself over TLS. The homepage carries the current version's URL.
-    local page ver
+    # Omarchy now ships per-arch filenames (omarchy-X.Y.Z-x86.iso) and, as of
+    # the same release, a first-party sha256 next to the ISO on iso.omarchy.org
+    # — previously it published neither checksums nor signatures at all.
+    local page ver sums
     page=$(fetch "https://omarchy.org") || die "cannot reach omarchy.org"
-    RESOLVED_URL=$(grep -oE 'https://iso\.omarchy\.org/omarchy-[0-9]+\.[0-9]+\.[0-9]+\.iso' \
+    RESOLVED_URL=$(grep -oE 'https://iso\.omarchy\.org/omarchy-[0-9]+\.[0-9]+\.[0-9]+-x86\.iso' \
         <<<"$page" | sort -uV | tail -1)
     [[ -n "$RESOLVED_URL" ]] || die "no ISO link found on omarchy.org"
     RESOLVED_FILE="${RESOLVED_URL##*/}"
-    ver="${RESOLVED_FILE#omarchy-}"; ver="${ver%.iso}"
+    ver="${RESOLVED_FILE#omarchy-}"; ver="${ver%-x86.iso}"
     version_at_least "$ver" "$OMARCHY_MIN_VERSION" \
         || die "omarchy.org offers version $ver; $OMARCHY_MIN_VERSION+ is required"
-    RESOLVED_ALGO="none"
+    sums=$(fetch "$RESOLVED_URL.sha256") || die "cannot fetch omarchy checksum"
+    RESOLVED_HASH=$(awk '{print tolower($1); exit}' <<<"$sums")
 }
 
 resolve_zimaos() {
