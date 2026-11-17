@@ -9,6 +9,10 @@
   failing `grep` ended the script before its `die` could report it. The
   resolver now takes the x86 build (and still accepts the old name), and
   the no-match case reports a proper error.
+- The same silent exit was latent in seven more resolvers (AlmaLinux,
+  Manjaro, Mint, EndeavourOS, CachyOS, Qubes): a layout change upstream
+  would end the run with status 1 and no message. Their scrapes are now
+  guarded so the resolver's own error is reported instead.
 
 ### Changed
 - Omarchy is no longer TLS-only. Upstream now publishes a sha256 file and a
