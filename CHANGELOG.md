@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Omarchy: 4.5.0 renamed its ISO per architecture
+  (`omarchy-4.5.0-x86.iso`, `-aarch64.iso`), so the resolver found no link
+  and the tool exited with status 1 and no message — under `pipefail` the
+  failing `grep` ended the script before its `die` could report it. The
+  resolver now takes the x86 build (and still accepts the old name), and
+  the no-match case reports a proper error.
+
+### Changed
+- Omarchy is no longer TLS-only. Upstream now publishes a sha256 file and a
+  detached GPG signature next to each ISO; the download is checksum-verified
+  and the signature is checked against Omarchy's package-signing key
+  `40DFB630FF42BCFFB047046CF0134EE680CAC571` (the key in `omarchy-keyring`).
+
 ## 1.2.2 — 2026-10-12
 
 ### Fixed

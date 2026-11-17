@@ -21,4 +21,6 @@ local file) still runs.
 - The word "verified" keeps its meaning for every other distro.
 - Users make an informed choice per distro; `info` shows the class.
 - If such an upstream starts publishing checksums, the resolver upgrades
-  and the class disappears from its output.
+  and the class disappears from its output. This happened for Omarchy
+  with 4.5.0 (2026-11): it now publishes a sha256 file and a detached GPG
+  signature per ISO, and moved to the signed-ISO class. Nyarch remains.

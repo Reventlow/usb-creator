@@ -20,18 +20,17 @@ with the guard rails you actually want:
 - **Downloads are checksum-verified** against the distro's official sums,
   fetched over HTTPS from infrastructure the project controls (or, for
   Debian's mirror fallback, protected by the signature check below). The
-  single exception is Omarchy, which publishes no integrity data — see the
-  footnote in the distro table.
+  single exception is Nyarch, which publishes no usable integrity data — see
+  the footnote in the distro table.
 - **GPG signatures are verified with pinned keys** wherever the distro
   publishes them: signed checksum files for Ubuntu (desktop and server),
   Kubuntu, Debian, Mint, Fedora (both variants), openSUSE, Kali and
   AlmaLinux; detached signatures over the image itself for
-  Arch, Alpine, EndeavourOS, CachyOS, Tails and Qubes OS. Keys live in a
+  Arch, Alpine, EndeavourOS, CachyOS, Tails, Qubes OS and Omarchy. Keys live in a
   private keyring under the cache dir
   (your own GnuPG setup is never touched), and a signature from any key
   other than the pinned fingerprint fails the download. Pop!_OS, Bazzite
-  and netboot.xyz publish no signatures — those remain checksum + TLS only —
-  and Omarchy publishes neither signatures nor checksums.
+  and netboot.xyz publish no signatures — those remain checksum + TLS only.
 - **Latest releases are resolved dynamically** — no hardcoded version numbers
   that go stale.
 - **Writes are verified** by reading the device back (direct I/O, bypassing
@@ -207,15 +206,15 @@ usb-creator update                   # update the tool itself
 | `tails` | Tails (privacy live system), latest stable (amd64) |
 | `qubes` | Qubes OS (security by compartmentalization), latest (x86_64) |
 | `kali` | Kali Linux Live, latest release (amd64) |
-| `omarchy` | Omarchy — opinionated Arch/Hyprland by DHH (amd64). **No upstream checksums or signatures — TLS-only download** † |
+| `omarchy` | Omarchy — opinionated Arch/Hyprland by DHH (amd64) |
 | `zimaos` | ZimaOS installer (IceWhale home-server OS) (x86_64) |
 | `freebsd` | FreeBSD memstick installer, latest RELEASE (amd64) |
 | `openbsd` | OpenBSD USB installer, latest release (amd64) |
 | `netbootxyz` | netboot.xyz network installer (~2 MB, boots many distros) |
 
-† These upstreams publish no usable integrity data (Omarchy: nothing;
-Nyarch: only SourceForge's MD5, which is not collision-resistant), so
-their downloads can only be trusted as far as TLS to the serving host —
+† These upstreams publish no usable integrity data (Nyarch: only
+SourceForge's MD5, which is not collision-resistant), so their downloads
+can only be trusted as far as TLS to the serving host —
 the tool says so loudly when you use them. The post-write read-back
 verification still applies.
 

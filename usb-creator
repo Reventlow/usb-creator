@@ -297,6 +297,9 @@ run_gpg() {
 #                by the Qubes Master Signing Key; new major = pin update
 #   almalinux    per-major key from repo.almalinux.org (currently 10);
 #                new major = pin + key URL update
+#   omarchy      package-signing key "Omarchy <pkgs@omarchy.org>"; pin
+#                matches omarchy-keyring's omarchy-trusted list and the
+#                pacman-key check in Omarchy's own migrations
 # fedora is absent on purpose: its release keys rotate, so the pin set is
 # taken from the first-party bundle at fedoraproject.org/fedora.gpg per run.
 declare -A DISTRO_GPG_FPR=(
@@ -314,6 +317,7 @@ declare -A DISTRO_GPG_FPR=(
     [qubes]="F3FA3F99D6281F7B3A3E5E871C3D9B627F3FADA4"
     [ubuntu-server]="843938DF228D22F7B3742BC0D94AA3F0EFE21092"
     [almalinux]="EE6DB7B98F5BF5EDD9DA0DE5DEE5C11CC2A1E572"
+    [omarchy]="40DFB630FF42BCFFB047046CF0134EE680CAC571"
 )
 
 # Where to obtain each key: a whitespace-separated list of URLs, tried in
@@ -359,6 +363,7 @@ declare -A DISTRO_GPG_KEYSRC=(
     [qubes]="https://keys.qubes-os.org/keys/qubes-release-4.3-signing-key.asc"
     [ubuntu-server]="$UBUNTU_CDIMAGE_KEYRING $(keyserver_urls 843938DF228D22F7B3742BC0D94AA3F0EFE21092)"
     [almalinux]="https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-10"
+    [omarchy]="$(keyserver_urls 40DFB630FF42BCFFB047046CF0134EE680CAC571)"
 )
 
 GPG_DYNAMIC_FPRS=""   # pin set for distros without a static pin (fedora)
@@ -956,18 +961,24 @@ resolve_kali() {
 OMARCHY_MIN_VERSION="4.0.0"
 
 resolve_omarchy() {
-    # Omarchy publishes neither checksums nor signatures — only the ISO
-    # itself over TLS. The homepage carries the current version's URL.
-    local page ver
+    # The homepage carries the current version's URLs. Since 4.5.0 the ISO
+    # is published per architecture (omarchy-X.Y.Z-x86.iso / -aarch64.iso)
+    # with a first-party <iso>.sha256 next to it and a detached GPG .sig by
+    # Omarchy's package-signing key. The un-suffixed name is still accepted
+    # in case upstream reverts to it. `|| true`: under pipefail a grep with
+    # no match would end the script silently, before the die below.
+    local page ver sums
     page=$(fetch "https://omarchy.org") || die "cannot reach omarchy.org"
-    RESOLVED_URL=$(grep -oE 'https://iso\.omarchy\.org/omarchy-[0-9]+\.[0-9]+\.[0-9]+\.iso' \
-        <<<"$page" | sort -uV | tail -1)
-    [[ -n "$RESOLVED_URL" ]] || die "no ISO link found on omarchy.org"
+    RESOLVED_URL=$(grep -oE 'https://iso\.omarchy\.org/omarchy-[0-9]+\.[0-9]+\.[0-9]+(-x86)?\.iso' \
+        <<<"$page" | sort -uV | tail -1) || true
+    [[ -n "$RESOLVED_URL" ]] || die "no x86 ISO link found on omarchy.org"
     RESOLVED_FILE="${RESOLVED_URL##*/}"
-    ver="${RESOLVED_FILE#omarchy-}"; ver="${ver%.iso}"
+    ver="${RESOLVED_FILE#omarchy-}"; ver="${ver%.iso}"; ver="${ver%-x86}"
     version_at_least "$ver" "$OMARCHY_MIN_VERSION" \
         || die "omarchy.org offers version $ver; $OMARCHY_MIN_VERSION+ is required"
-    RESOLVED_ALGO="none"
+    sums=$(fetch "$RESOLVED_URL.sha256") || die "cannot fetch the Omarchy ISO checksum"
+    RESOLVED_HASH=$(checksum_for "$sums" "$RESOLVED_FILE")
+    RESOLVED_ISO_SIG_URL="$RESOLVED_URL.sig"
 }
 
 resolve_zimaos() {
