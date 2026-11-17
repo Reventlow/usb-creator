@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.3 — 2026-11-17
 
 ### Fixed
 - Omarchy: 4.5.0 renamed its ISO per architecture

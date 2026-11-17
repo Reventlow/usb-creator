@@ -1,7 +1,7 @@
 # Maintainer: Gorm Reventlow <gorm@reventlow.com>
 # Local package: build with `makepkg -si` (or `paru -Bi .`) from this directory.
 pkgname=usb-creator
-pkgver=1.2.2
+pkgver=1.2.3
 pkgrel=1
 pkgdesc="Create bootable USB installers for Linux and BSD with checksum and GPG verification"
 arch=('any')
